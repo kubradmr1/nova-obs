@@ -15,8 +15,10 @@ import {
   STUDENTS_STORAGE_KEY,
   departmentsFor,
 } from '@/data/admin';
+import { useI18n } from '@/hooks/useI18n';
 import { useStoredList } from '@/hooks/useStoredList';
 import type { RegisteredStudent } from '@/types/admin';
+import { localizeClassYear } from '@/utils/localeData';
 import { readCollection } from '@/utils/storage';
 
 interface StudentFormState {
@@ -50,6 +52,7 @@ function createEmptyForm(): StudentFormState {
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function StudentRegistrationPage() {
+  const { t, locale } = useI18n();
   const { items, add } = useStoredList<RegisteredStudent>(
     STUDENTS_STORAGE_KEY,
     SEED_STUDENTS,
@@ -75,46 +78,46 @@ export function StudentRegistrationPage() {
     const academicians = readCollection(ACADEMICIANS_STORAGE_KEY, SEED_ACADEMICIANS);
 
     if (values.firstName.trim().length < 2) {
-      next.firstName = 'Ad en az 2 karakter olmalı.';
+      next.firstName = t('ad.validation.firstNameMin');
     }
 
     if (values.lastName.trim().length < 2) {
-      next.lastName = 'Soyad en az 2 karakter olmalı.';
+      next.lastName = t('ad.validation.lastNameMin');
     }
 
     if (!/^\d{8,10}$/.test(values.studentNumber.trim())) {
-      next.studentNumber = '8–10 haneli bir öğrenci numarası gir.';
+      next.studentNumber = t('ad.validation.studentNumberDigits');
     } else if (items.some((student) => student.studentNumber === values.studentNumber.trim())) {
-      next.studentNumber = 'Bu öğrenci numarası zaten kayıtlı.';
+      next.studentNumber = t('ad.validation.studentNumberTaken');
     }
 
     if (!values.faculty) {
-      next.faculty = 'Fakülte seçimi zorunlu.';
+      next.faculty = t('ad.validation.facultyRequired');
     }
 
     if (!values.department) {
-      next.department = 'Bölüm seçimi zorunlu.';
+      next.department = t('ad.validation.departmentRequired');
     }
 
     if (!values.classYear) {
-      next.classYear = 'Sınıf seçimi zorunlu.';
+      next.classYear = t('ad.validation.classYearRequired');
     }
 
     if (!EMAIL_PATTERN.test(values.email.trim())) {
-      next.email = 'Geçerli bir e-posta adresi gir.';
+      next.email = t('ad.validation.emailInvalid');
     } else if (
       items.some((student) => student.email.toLowerCase() === values.email.trim().toLowerCase()) ||
       academicians.some(
         (academician) => academician.email.toLowerCase() === values.email.trim().toLowerCase(),
       )
     ) {
-      next.email = 'Bu e-posta adresi sistemde kayıtlı.';
+      next.email = t('ad.validation.emailTaken');
     }
 
     const phoneDigits = values.phone.replace(/\D/g, '');
 
     if (phoneDigits.length > 0 && (phoneDigits.length < 10 || phoneDigits.length > 11)) {
-      next.phone = 'Telefon 10–11 haneli olmalı (isteğe bağlı).';
+      next.phone = t('ad.validation.phone');
     }
 
     const year = Number(values.enrolledAt);
@@ -124,7 +127,7 @@ export function StudentRegistrationPage() {
       year < 2000 ||
       year > new Date().getFullYear() + 1
     ) {
-      next.enrolledAt = 'Geçerli bir kayıt yılı gir.';
+      next.enrolledAt = t('ad.validation.enrolledYear');
     }
 
     return next;
@@ -157,7 +160,10 @@ export function StudentRegistrationPage() {
     });
 
     setNotice(
-      `${fullName} (${values.studentNumber.trim()}) kaydı oluşturuldu. Giriş bilgileri öğrenci e-postasına iletilir.`,
+      t('ad.student.created', {
+        name: fullName,
+        number: values.studentNumber.trim(),
+      }),
     );
     setValues(createEmptyForm());
     setErrors({});
@@ -174,13 +180,13 @@ export function StudentRegistrationPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        eyebrow="Yönetim Paneli"
-        title="Yeni Öğrenci Kaydı"
-        description="Öğrencinin kimlik, iletişim ve akademik bilgilerini girerek sisteme kaydet. Kayıt numarası benzersiz olmalıdır."
+        eyebrow={t('panel.portal.admin')}
+        title={t('ad.student.title')}
+        description={t('ad.student.description')}
       />
 
       {notice ? (
-        <Notice tone="success" title="Kayıt tamamlandı">
+        <Notice tone="success" title={t('ad.notice.registrationComplete')}>
           {notice}
         </Notice>
       ) : null}
@@ -193,10 +199,10 @@ export function StudentRegistrationPage() {
             </span>
             <div>
               <h2 className="font-display text-[15px] font-bold text-slate-900 dark:text-white">
-                Öğrenci bilgileri
+                {t('ad.student.formTitle')}
               </h2>
               <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                Zorunlu alanları doldurarak yeni kayıt oluştur.
+                {t('ad.student.formHint')}
               </p>
             </div>
           </div>
@@ -204,11 +210,11 @@ export function StudentRegistrationPage() {
           <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-4">
             <section className="space-y-3">
               <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-                Kişisel bilgiler
+                {t('ad.section.personal')}
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <InputField
-                  label="Ad"
+                  label={t('ad.field.firstName')}
                   placeholder="Zeynep"
                   autoComplete="off"
                   value={values.firstName}
@@ -216,7 +222,7 @@ export function StudentRegistrationPage() {
                   onChange={(event) => update('firstName', event.target.value)}
                 />
                 <InputField
-                  label="Soyad"
+                  label={t('ad.field.lastName')}
                   placeholder="Kaya"
                   autoComplete="off"
                   value={values.lastName}
@@ -224,7 +230,7 @@ export function StudentRegistrationPage() {
                   onChange={(event) => update('lastName', event.target.value)}
                 />
                 <InputField
-                  label="Öğrenci Numarası"
+                  label={t('ad.field.studentNumber')}
                   placeholder="2026001234"
                   inputMode="numeric"
                   maxLength={10}
@@ -233,7 +239,7 @@ export function StudentRegistrationPage() {
                   onChange={(event) => update('studentNumber', event.target.value.replace(/\D/g, ''))}
                 />
                 <InputField
-                  label="Kayıt Yılı"
+                  label={t('ad.field.enrolledYear')}
                   placeholder="2026"
                   inputMode="numeric"
                   maxLength={4}
@@ -242,16 +248,16 @@ export function StudentRegistrationPage() {
                   onChange={(event) => update('enrolledAt', event.target.value.replace(/\D/g, ''))}
                 />
                 <InputField
-                  label="E-posta"
+                  label={t('ad.field.email')}
                   type="email"
-                  placeholder="ad.soyad@ogr.uni.edu.tr"
+                  placeholder={t('ad.ph.studentEmail')}
                   autoComplete="off"
                   value={values.email}
                   error={errors.email}
                   onChange={(event) => update('email', event.target.value)}
                 />
                 <InputField
-                  label="Telefon (isteğe bağlı)"
+                  label={t('ad.field.phoneOptional')}
                   type="tel"
                   placeholder="0532 000 00 00"
                   autoComplete="off"
@@ -264,20 +270,22 @@ export function StudentRegistrationPage() {
 
             <section className="space-y-3">
               <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-                Akademik bilgiler
+                {t('ad.section.academic')}
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <SelectField
-                  label="Fakülte"
-                  placeholder="Fakülte seç"
+                  label={t('ad.field.faculty')}
+                  placeholder={t('ad.ph.selectFaculty')}
                   options={FACULTIES.map((faculty) => faculty.name)}
                   value={values.faculty}
                   error={errors.faculty}
                   onChange={(event) => update('faculty', event.target.value)}
                 />
                 <SelectField
-                  label="Bölüm"
-                  placeholder={values.faculty ? 'Bölüm seç' : 'Önce fakülte seç'}
+                  label={t('ad.field.department')}
+                  placeholder={
+                    values.faculty ? t('ad.ph.selectDepartment') : t('ad.ph.selectFacultyFirst')
+                  }
                   options={departmentsFor(values.faculty)}
                   value={values.department}
                   error={errors.department}
@@ -285,8 +293,11 @@ export function StudentRegistrationPage() {
                   onChange={(event) => update('department', event.target.value)}
                 />
                 <SelectField
-                  label="Sınıf"
-                  options={CLASS_YEARS}
+                  label={t('ad.field.classYear')}
+                  options={CLASS_YEARS.map((year) => ({
+                    value: year,
+                    label: localizeClassYear(year, locale),
+                  }))}
                   value={values.classYear}
                   error={errors.classYear}
                   onChange={(event) => update('classYear', event.target.value)}
@@ -297,7 +308,7 @@ export function StudentRegistrationPage() {
             <div className="flex flex-wrap gap-2 border-t border-slate-200/70 pt-3.5 dark:border-white/[0.07]">
               <Button type="submit" className="px-4 py-2.5 text-[12px]">
                 <UserPlus className="h-4 w-4" aria-hidden />
-                Öğrenciyi Kaydet
+                {t('ad.student.submit')}
               </Button>
               <Button
                 type="button"
@@ -306,7 +317,7 @@ export function StudentRegistrationPage() {
                 className="px-4 py-2.5 text-[12px]"
               >
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-                Formu temizle
+                {t('ad.form.clear')}
               </Button>
             </div>
           </form>
@@ -315,17 +326,17 @@ export function StudentRegistrationPage() {
         <Card className="p-4">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">
-              Son kayıtlar
+              {t('ad.list.recent')}
             </h2>
             <span className="rounded-full bg-brand-500/10 px-2 py-0.5 text-[9px] font-bold text-brand-600 dark:text-brand-300">
-              Toplam {items.length}
+              {t('ad.list.total', { count: items.length })}
             </span>
           </div>
 
           <ul className="mt-2 divide-y divide-slate-200/60 dark:divide-white/[0.06]">
             {latestStudents.length === 0 ? (
               <li className="py-8 text-center text-[10px] text-slate-400 dark:text-slate-500">
-                Henüz öğrenci kaydı yok.
+                {t('ad.student.empty')}
               </li>
             ) : (
               latestStudents.map((student) => {
@@ -355,7 +366,7 @@ export function StudentRegistrationPage() {
           </ul>
 
           <p className="mt-3 border-t border-slate-200/60 pt-2.5 text-[9px] leading-relaxed text-slate-400 dark:border-white/[0.06] dark:text-slate-500">
-            Kayıtlar bu tarayıcıda saklanır. Yeni kayıtlar listenin en üstünde görünür.
+            {t('ad.student.storageNote')}
           </p>
         </Card>
       </div>

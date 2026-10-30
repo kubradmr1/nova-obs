@@ -3,10 +3,12 @@ import type { Chat, MessageSide, StartConversationInput } from '@/types/messagin
 
 export interface MessagingContextValue {
   chats: Chat[];
-  sendMessage: (chatId: string, from: MessageSide, text: string) => void;
+  isLoading: boolean;
+  error: string | null;
+  sendMessage: (chatId: string, from: MessageSide, text: string) => Promise<void>;
   markRead: (chatId: string, viewer: MessageSide) => void;
   markAllReadForAcademician: (academicianId: string) => void;
-  startConversation: (input: StartConversationInput) => string;
+  startConversation: (input: StartConversationInput) => Promise<string>;
 }
 
 export const MessagingContext = createContext<MessagingContextValue | null>(null);

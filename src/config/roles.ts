@@ -1,4 +1,5 @@
 import { BookOpen, GraduationCap, ShieldCheck } from 'lucide-react';
+import { ROLE_HOME } from '@/config/rbac';
 import type { Role, RoleDefinition } from '@/types/auth';
 
 export const ROLES: readonly RoleDefinition[] = [
@@ -42,12 +43,5 @@ export function getRole(role: Role): RoleDefinition {
 }
 
 export function getHomePath(role: Role): string {
-  switch (role) {
-    case 'student':
-      return '/panel';
-    case 'academic':
-      return '/hoca';
-    case 'admin':
-      return '/yonetim';
-  }
+  return ROLE_HOME[role];
 }

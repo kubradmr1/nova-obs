@@ -1,8 +1,8 @@
 import {
   UNIVERSITY_NAME,
-  UNIVERSITY_UNIT,
   UNIVERSITY_VERIFICATION,
 } from '@/config/branding';
+import { LOCALE_STORAGE_KEY } from '@/context/i18n-context';
 import { ACADEMIC_HISTORY, COURSES, STUDENT } from '@/data/student';
 import {
   computeAverage,
@@ -12,6 +12,8 @@ import {
   resolveLetter,
   summarizeSemester,
 } from '@/utils/grading';
+import { translateStored } from '@/utils/i18nRuntime';
+import { localizeClassYear, localizeTerm } from '@/utils/localeData';
 
 function escapeHtml(value: string): string {
   return value
@@ -22,11 +24,23 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-const longDate = new Intl.DateTimeFormat('tr-TR', {
-  day: '2-digit',
-  month: 'long',
-  year: 'numeric',
-});
+function fill(template: string, params: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (match, key: string) =>
+    key in params ? params[key] : match,
+  );
+}
+
+function currentLocale(): 'tr' | 'en' {
+  return window.localStorage.getItem(LOCALE_STORAGE_KEY) === 'en' ? 'en' : 'tr';
+}
+
+function formatLongDate(): string {
+  return new Intl.DateTimeFormat(currentLocale() === 'en' ? 'en-US' : 'tr-TR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date());
+}
 
 function documentNumber(prefix: string): string {
   return `NOVA-${prefix}-${new Date().getFullYear()}-${STUDENT.identifier}`;
@@ -45,17 +59,17 @@ function verificationPattern(seed: string): string {
     cells.push(`<span style="background:${filled ? '#0f172a' : 'transparent'}"></span>`);
   }
 
-  return `<div class="qr-grid" aria-label="Doğrulama kodu">${cells.join('')}</div>`;
+  return `<div class="qr-grid" aria-label="${escapeHtml(translateStored('doc.verifyAria'))}">${cells.join('')}</div>`;
 }
 
 function signatureBlock(code: string): string {
   return `
     <div class="signature">
-      <div class="seal">e-imza</div>
+      <div class="seal">${escapeHtml(translateStored('doc.eStamp'))}</div>
       <div class="signature-body">
         <div class="signature-line"></div>
         <p class="signature-name">${escapeHtml(STUDENT.advisor)}</p>
-        <p class="signature-role">Danışman Akademisyen · ${escapeHtml(STUDENT.department)}</p>
+        <p class="signature-role">${escapeHtml(translateStored('doc.signatureRole'))} · ${escapeHtml(STUDENT.department)}</p>
         <p class="signature-meta">${escapeHtml(UNIVERSITY_VERIFICATION)} · ${escapeHtml(code)}</p>
       </div>
     </div>`;
@@ -65,7 +79,7 @@ function documentShell(title: string, heading: string, documentNo: string, body:
   const origin = window.location.origin;
 
   return `<!doctype html>
-<html lang="tr">
+<html lang="${currentLocale()}">
 <head>
   <meta charset="utf-8" />
   <title>${escapeHtml(title)}</title>
@@ -124,8 +138,8 @@ function documentShell(title: string, heading: string, documentNo: string, body:
 </head>
 <body>
   <div class="toolbar">
-    <button class="ghost" onclick="window.close()">Kapat</button>
-    <button class="primary" onclick="window.print()">PDF olarak kaydet</button>
+    <button class="ghost" onclick="window.close()">${escapeHtml(translateStored('doc.close'))}</button>
+    <button class="primary" onclick="window.print()">${escapeHtml(translateStored('doc.savePdf'))}</button>
   </div>
   <main class="sheet">
     <header class="doc-header">
@@ -133,17 +147,17 @@ function documentShell(title: string, heading: string, documentNo: string, body:
         <img src="${origin}/nova-mark.svg" alt="" />
         <div>
           <h1>${escapeHtml(UNIVERSITY_NAME)}</h1>
-          <p>${escapeHtml(UNIVERSITY_UNIT)} · Öğrenci Bilgi Sistemi</p>
+          <p>${escapeHtml(translateStored('brand.unit'))} · ${escapeHtml(translateStored('doc.portal'))}</p>
         </div>
       </div>
       <div class="doc-meta">
-        <span>Belge no</span>
+        <span>${escapeHtml(translateStored('doc.docNo'))}</span>
         <strong>${escapeHtml(documentNo)}</strong>
-        <span>${escapeHtml(longDate.format(new Date()))}</span>
+        <span>${escapeHtml(formatLongDate())}</span>
       </div>
     </header>
     <h2 class="doc-title">${escapeHtml(heading)}</h2>
-    <p class="doc-subtitle">Nova Teknik Üniversitesi Öğrenci Bilgi Sistemi üzerinden üretilmiştir</p>
+    <p class="doc-subtitle">${escapeHtml(translateStored('doc.generatedBy'))}</p>
     ${body}
   </main>
 </body>
@@ -176,41 +190,44 @@ function openPrintableDocument(title: string, heading: string, documentNo: strin
 
 export function openStudentCertificate(): boolean {
   const code = documentNumber('OB');
+  const t = translateStored;
   const body = `
     <p class="lead">
-      Bu belge; <strong>${escapeHtml(UNIVERSITY_NAME)}</strong> ${escapeHtml(STUDENT.faculty)}
-      ${escapeHtml(STUDENT.department)} programı <strong>${escapeHtml(STUDENT.identifier)}</strong>
-      numaralı öğrencisi <strong>${escapeHtml(STUDENT.name)}</strong>’ın
-      <strong>${escapeHtml(STUDENT.term)}</strong> eğitim-öğretim döneminde öğrenimine aktif olarak
-      devam ettiğini doğrulamak amacıyla düzenlenmiştir.
+      ${fill(t('doc.cert.lead'), {
+        university: escapeHtml(UNIVERSITY_NAME),
+        faculty: escapeHtml(STUDENT.faculty),
+        department: escapeHtml(STUDENT.department),
+        number: escapeHtml(STUDENT.identifier),
+        name: escapeHtml(STUDENT.name),
+        term: escapeHtml(localizeTerm(STUDENT.term, currentLocale())),
+      })}
     </p>
 
     <div class="info-grid">
-      <div><span>Öğrenci no</span><strong>${escapeHtml(STUDENT.identifier)}</strong></div>
-      <div><span>Kayıt durumu</span><strong>Aktif öğrenci</strong></div>
-      <div><span>Fakülte</span><strong>${escapeHtml(STUDENT.faculty)}</strong></div>
-      <div><span>Bölüm</span><strong>${escapeHtml(STUDENT.department)}</strong></div>
-      <div><span>Program</span><strong>${escapeHtml(STUDENT.program)}</strong></div>
-      <div><span>Sınıf</span><strong>${escapeHtml(STUDENT.classYear)}</strong></div>
-      <div><span>Kayıt yılı</span><strong>${escapeHtml(STUDENT.enrolledAt)}</strong></div>
-      <div><span>Danışman</span><strong>${escapeHtml(STUDENT.advisor)}</strong></div>
+      <div><span>${escapeHtml(t('doc.field.studentNo'))}</span><strong>${escapeHtml(STUDENT.identifier)}</strong></div>
+      <div><span>${escapeHtml(t('doc.field.enrollmentStatus'))}</span><strong>${escapeHtml(t('doc.value.activeStudent'))}</strong></div>
+      <div><span>${escapeHtml(t('doc.field.faculty'))}</span><strong>${escapeHtml(STUDENT.faculty)}</strong></div>
+      <div><span>${escapeHtml(t('doc.field.department'))}</span><strong>${escapeHtml(STUDENT.department)}</strong></div>
+      <div><span>${escapeHtml(t('doc.field.program'))}</span><strong>${escapeHtml(STUDENT.program)}</strong></div>
+      <div><span>${escapeHtml(t('doc.field.classYear'))}</span><strong>${escapeHtml(localizeClassYear(STUDENT.classYear, currentLocale()))}</strong></div>
+      <div><span>${escapeHtml(t('doc.field.enrolledAt'))}</span><strong>${escapeHtml(STUDENT.enrolledAt)}</strong></div>
+      <div><span>${escapeHtml(t('doc.field.advisor'))}</span><strong>${escapeHtml(STUDENT.advisor)}</strong></div>
     </div>
 
     <p class="lead">
-      Belge, ${escapeHtml(UNIVERSITY_VERIFICATION)} adresinden belge numarası ile doğrulanabilir.
-      5070 sayılı Elektronik İmza Kanunu kapsamında e-imza ile imzalanmıştır.
+      ${fill(t('doc.cert.verify'), { verification: escapeHtml(UNIVERSITY_VERIFICATION) })}
     </p>
 
     ${signatureBlock(code)}
 
     <div class="footnote">
-      <span>Bu belge demo amaçlı üretilmiştir; resmî belge niteliği taşımaz.</span>
+      <span>${escapeHtml(t('doc.footnote.demo'))}</span>
       <span>${verificationPattern(code)}</span>
     </div>`;
 
   return openPrintableDocument(
     `Nova-Teknik-Ogrenci-Belgesi-${STUDENT.identifier}`,
-    'Öğrenci Belgesi',
+    t('doc.cert.title'),
     code,
     body,
   );
@@ -219,6 +236,7 @@ export function openStudentCertificate(): boolean {
 export function openTranscriptDocument(): boolean {
   const code = documentNumber('TR');
   const summary = summarizeSemester(COURSES);
+  const t = translateStored;
 
   const rows = COURSES.map((course) => {
     const average = computeAverage(course.midterm, course.final);
@@ -238,63 +256,71 @@ export function openTranscriptDocument(): boolean {
   const historyRows = ACADEMIC_HISTORY.map(
     (semester) => `
       <tr>
-        <td>${escapeHtml(semester.term)}</td>
+        <td>${escapeHtml(localizeTerm(semester.term, currentLocale()))}</td>
         <td class="numeric">${semester.ects}</td>
         <td class="numeric">${formatGpa(semester.gpa)}</td>
-        <td class="numeric">${semester.status === 'ongoing' ? 'Devam ediyor' : 'Tamamlandı'}</td>
+        <td class="numeric">${escapeHtml(
+          semester.status === 'ongoing' ? t('doc.status.ongoing') : t('doc.status.completed'),
+        )}</td>
       </tr>`,
   ).join('');
 
   const body = `
     <div class="info-grid">
-      <div><span>Öğrenci</span><strong>${escapeHtml(STUDENT.name)}</strong></div>
-      <div><span>Öğrenci no</span><strong>${escapeHtml(STUDENT.identifier)}</strong></div>
-      <div><span>Program</span><strong>${escapeHtml(STUDENT.program)}</strong></div>
-      <div><span>Danışman</span><strong>${escapeHtml(STUDENT.advisor)}</strong></div>
+      <div><span>${escapeHtml(t('doc.field.student'))}</span><strong>${escapeHtml(STUDENT.name)}</strong></div>
+      <div><span>${escapeHtml(t('doc.field.studentNo'))}</span><strong>${escapeHtml(STUDENT.identifier)}</strong></div>
+      <div><span>${escapeHtml(t('doc.field.program'))}</span><strong>${escapeHtml(STUDENT.program)}</strong></div>
+      <div><span>${escapeHtml(t('doc.field.advisor'))}</span><strong>${escapeHtml(STUDENT.advisor)}</strong></div>
     </div>
 
     <div class="summary">
-      <div><span>Genel not ortalaması</span><strong>${formatGpa(STUDENT.cumulativeGpa)} <small>/ 4,00</small></strong></div>
-      <div><span>Dönem ortalaması</span><strong>${formatGpa(summary.gpa)} <small>/ 4,00</small></strong></div>
-      <div><span>Toplam AKTS</span><strong>${STUDENT.completedEcts} <small>/ ${STUDENT.totalEcts}</small></strong></div>
-      <div><span>Başarılı ders</span><strong>${summary.passedCount} <small>/ ${COURSES.length}</small></strong></div>
+      <div><span>${escapeHtml(t('doc.gpa'))}</span><strong>${formatGpa(STUDENT.cumulativeGpa)} <small>/ ${formatGpa(4)}</small></strong></div>
+      <div><span>${escapeHtml(t('doc.termGpa'))}</span><strong>${formatGpa(summary.gpa)} <small>/ ${formatGpa(4)}</small></strong></div>
+      <div><span>${escapeHtml(t('doc.totalEcts'))}</span><strong>${STUDENT.completedEcts} <small>/ ${STUDENT.totalEcts}</small></strong></div>
+      <div><span>${escapeHtml(t('doc.passedCourses'))}</span><strong>${summary.passedCount} <small>/ ${COURSES.length}</small></strong></div>
     </div>
 
     <table>
       <caption style="text-align:left;font-size:10px;font-weight:700;padding-bottom:6px;">
-        ${escapeHtml(STUDENT.term)} dönem dökümü · ${summary.credits} kredi · ${summary.ects} AKTS
+        ${escapeHtml(
+          fill(t('doc.termBreakdown'), {
+            term: localizeTerm(STUDENT.term, currentLocale()),
+            credits: String(summary.credits),
+            ects: String(summary.ects),
+          }),
+        )}
       </caption>
       <thead>
         <tr>
-          <th>Ders</th>
-          <th class="numeric">Kredi</th>
-          <th class="numeric">AKTS</th>
-          <th class="numeric">Ortalama</th>
-          <th class="numeric">Harf</th>
-          <th class="numeric">Katsayı</th>
+          <th>${escapeHtml(t('doc.th.course'))}</th>
+          <th class="numeric">${escapeHtml(t('doc.th.credits'))}</th>
+          <th class="numeric">${escapeHtml(t('doc.th.ects'))}</th>
+          <th class="numeric">${escapeHtml(t('doc.th.average'))}</th>
+          <th class="numeric">${escapeHtml(t('doc.th.letter'))}</th>
+          <th class="numeric">${escapeHtml(t('doc.th.points'))}</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
       <tfoot>
         <tr>
-          <td>Dönem sonu</td>
+          <td>${escapeHtml(t('doc.termEnd'))}</td>
           <td class="numeric">${summary.credits}</td>
           <td class="numeric">${summary.ects}</td>
           <td class="numeric">—</td>
-          <td class="numeric">GNO</td>
+          <td class="numeric">${escapeHtml(t('doc.gpaShort'))}</td>
           <td class="numeric">${formatGpa(summary.gpa)}</td>
         </tr>
       </tfoot>
     </table>
 
     <table>
-      <caption style="text-align:left;font-size:10px;font-weight:700;padding-bottom:6px;">Akademik geçmiş</caption>
+      <caption style="text-align:left;font-size:10px;font-weight:700;padding-bottom:6px;">${escapeHtml(t('doc.history'))}</caption>
       <thead>
         <tr>
-          <th>Dönem</th>
-          <th class="numeric">AKTS</th>
-          <th class="numeric">GNO</th>
-          <th class="numeric">Durum</th>
+          <th>${escapeHtml(t('doc.th.term'))}</th>
+          <th class="numeric">${escapeHtml(t('doc.th.ects'))}</th>
+          <th class="numeric">${escapeHtml(t('doc.gpaShort'))}</th>
+          <th class="numeric">${escapeHtml(t('doc.th.status'))}</th>
         </tr>
       </thead>
       <tbody>${historyRows}</tbody>
@@ -303,13 +329,13 @@ export function openTranscriptDocument(): boolean {
     ${signatureBlock(code)}
 
     <div class="footnote">
-      <span>Bu transkript demo amaçlı üretilmiştir; resmî belge niteliği taşımaz. Vize %40, final %60 ağırlığıyla hesaplanmıştır.</span>
+      <span>${escapeHtml(t('doc.transcript.footnote'))}</span>
       <span>${verificationPattern(code)}</span>
     </div>`;
 
   return openPrintableDocument(
     `Nova-Teknik-Transkript-${STUDENT.identifier}`,
-    'Transkript',
+    t('doc.transcript.title'),
     code,
     body,
   );

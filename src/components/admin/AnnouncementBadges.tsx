@@ -1,5 +1,20 @@
 import type { AnnouncementAudience, AnnouncementCategory } from '@/types/admin';
+import { useI18n } from '@/hooks/useI18n';
+import type { MessageKey } from '@/i18n/messages';
 import { cx } from '@/utils/cx';
+
+export const CATEGORY_KEYS: Record<AnnouncementCategory, MessageKey> = {
+  Akademik: 'announcement.category.Akademik',
+  Sınav: 'announcement.category.Sınav',
+  Duyuru: 'announcement.category.Duyuru',
+  Etkinlik: 'announcement.category.Etkinlik',
+};
+
+export const AUDIENCE_KEYS: Record<AnnouncementAudience, MessageKey> = {
+  Tümü: 'announcement.audience.Tümü',
+  Öğrenciler: 'announcement.audience.Öğrenciler',
+  Akademisyenler: 'announcement.audience.Akademisyenler',
+};
 
 const CATEGORY_TONES: Record<AnnouncementCategory, string> = {
   Akademik:
@@ -13,6 +28,8 @@ const CATEGORY_TONES: Record<AnnouncementCategory, string> = {
 };
 
 export function CategoryBadge({ category }: { category: AnnouncementCategory }) {
+  const { t } = useI18n();
+
   return (
     <span
       className={cx(
@@ -20,15 +37,17 @@ export function CategoryBadge({ category }: { category: AnnouncementCategory }) 
         CATEGORY_TONES[category],
       )}
     >
-      {category}
+      {t(CATEGORY_KEYS[category])}
     </span>
   );
 }
 
 export function AudienceBadge({ audience }: { audience: AnnouncementAudience }) {
+  const { t } = useI18n();
+
   return (
     <span className="inline-flex rounded-full border border-slate-200/80 bg-slate-50/80 px-2 py-0.5 text-[8.5px] font-semibold text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400">
-      {audience}
+      {t(AUDIENCE_KEYS[audience])}
     </span>
   );
 }

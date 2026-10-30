@@ -15,6 +15,7 @@ import {
   STUDENTS_STORAGE_KEY,
   departmentsFor,
 } from '@/data/admin';
+import { useI18n } from '@/hooks/useI18n';
 import { useStoredList } from '@/hooks/useStoredList';
 import type { RegisteredAcademician } from '@/types/admin';
 import { readCollection } from '@/utils/storage';
@@ -48,6 +49,7 @@ function createEmptyForm(): AcademicianFormState {
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function AcademicianRegistrationPage() {
+  const { t } = useI18n();
   const { items, add } = useStoredList<RegisteredAcademician>(
     ACADEMICIANS_STORAGE_KEY,
     SEED_ACADEMICIANS,
@@ -73,19 +75,19 @@ export function AcademicianRegistrationPage() {
     const students = readCollection(STUDENTS_STORAGE_KEY, SEED_STUDENTS);
 
     if (!values.title) {
-      next.title = 'Unvan seçimi zorunlu.';
+      next.title = t('ad.validation.titleRequired');
     }
 
     if (values.firstName.trim().length < 2) {
-      next.firstName = 'Ad en az 2 karakter olmalı.';
+      next.firstName = t('ad.validation.firstNameMin');
     }
 
     if (values.lastName.trim().length < 2) {
-      next.lastName = 'Soyad en az 2 karakter olmalı.';
+      next.lastName = t('ad.validation.lastNameMin');
     }
 
     if (!EMAIL_PATTERN.test(values.email.trim())) {
-      next.email = 'Geçerli bir kurumsal e-posta gir.';
+      next.email = t('ad.validation.institutionalEmailInvalid');
     } else if (
       items.some(
         (academician) => academician.email.toLowerCase() === values.email.trim().toLowerCase(),
@@ -94,25 +96,25 @@ export function AcademicianRegistrationPage() {
         (student) => student.email.toLowerCase() === values.email.trim().toLowerCase(),
       )
     ) {
-      next.email = 'Bu e-posta adresi sistemde kayıtlı.';
+      next.email = t('ad.validation.emailTaken');
     }
 
     if (!values.faculty) {
-      next.faculty = 'Fakülte seçimi zorunlu.';
+      next.faculty = t('ad.validation.facultyRequired');
     }
 
     if (!values.department) {
-      next.department = 'Bölüm seçimi zorunlu.';
+      next.department = t('ad.validation.departmentRequired');
     }
 
     if (values.office.trim().length < 2) {
-      next.office = 'Ofis bilgisi zorunlu (örn. D-310).';
+      next.office = t('ad.validation.officeRequired');
     }
 
     const phoneDigits = values.phone.replace(/\D/g, '');
 
     if (phoneDigits.length > 0 && (phoneDigits.length < 10 || phoneDigits.length > 11)) {
-      next.phone = 'Telefon 10–11 haneli olmalı (isteğe bağlı).';
+      next.phone = t('ad.validation.phone');
     }
 
     return next;
@@ -144,7 +146,9 @@ export function AcademicianRegistrationPage() {
     });
 
     setNotice(
-      `${fullName} kaydı oluşturuldu. Kurumsal e-posta hesabı ve ders atama yetkisi aktifleştirildi.`,
+      t('ad.academician.created', {
+        name: fullName,
+      }),
     );
     setValues(createEmptyForm());
     setErrors({});
@@ -161,13 +165,13 @@ export function AcademicianRegistrationPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        eyebrow="Yönetim Paneli"
-        title="Yeni Akademisyen Kaydı"
-        description="Akademik kadroya yeni bir kullanıcı ekle. Kurumsal e-posta adresi benzersiz olmalı ve bölüm bilgisiyle birlikte kaydedilir."
+        eyebrow={t('panel.portal.admin')}
+        title={t('ad.academician.title')}
+        description={t('ad.academician.description')}
       />
 
       {notice ? (
-        <Notice tone="success" title="Kayıt tamamlandı">
+        <Notice tone="success" title={t('ad.notice.registrationComplete')}>
           {notice}
         </Notice>
       ) : null}
@@ -180,10 +184,10 @@ export function AcademicianRegistrationPage() {
             </span>
             <div>
               <h2 className="font-display text-[15px] font-bold text-slate-900 dark:text-white">
-                Akademisyen bilgileri
+                {t('ad.academician.formTitle')}
               </h2>
               <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                Unvan, birim ve iletişim bilgilerini girerek kayıt oluştur.
+                {t('ad.academician.formHint')}
               </p>
             </div>
           </div>
@@ -191,27 +195,27 @@ export function AcademicianRegistrationPage() {
           <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-4">
             <section className="space-y-3">
               <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-                Kişisel bilgiler
+                {t('ad.section.personal')}
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <SelectField
-                  label="Unvan"
+                  label={t('ad.field.academicTitle')}
                   options={ACADEMIC_TITLES}
                   value={values.title}
                   error={errors.title}
                   onChange={(event) => update('title', event.target.value)}
                 />
                 <InputField
-                  label="Kurumsal E-posta"
+                  label={t('ad.field.institutionalEmail')}
                   type="email"
-                  placeholder="ad.soyad@uni.edu.tr"
+                  placeholder={t('ad.ph.academicEmail')}
                   autoComplete="off"
                   value={values.email}
                   error={errors.email}
                   onChange={(event) => update('email', event.target.value)}
                 />
                 <InputField
-                  label="Ad"
+                  label={t('ad.field.firstName')}
                   placeholder="Burak"
                   autoComplete="off"
                   value={values.firstName}
@@ -219,7 +223,7 @@ export function AcademicianRegistrationPage() {
                   onChange={(event) => update('firstName', event.target.value)}
                 />
                 <InputField
-                  label="Soyad"
+                  label={t('ad.field.lastName')}
                   placeholder="Şen"
                   autoComplete="off"
                   value={values.lastName}
@@ -227,7 +231,7 @@ export function AcademicianRegistrationPage() {
                   onChange={(event) => update('lastName', event.target.value)}
                 />
                 <InputField
-                  label="Ofis"
+                  label={t('ad.field.office')}
                   placeholder="D-312"
                   autoComplete="off"
                   value={values.office}
@@ -235,7 +239,7 @@ export function AcademicianRegistrationPage() {
                   onChange={(event) => update('office', event.target.value)}
                 />
                 <InputField
-                  label="Telefon (isteğe bağlı)"
+                  label={t('ad.field.phoneOptional')}
                   type="tel"
                   placeholder="0312 000 00 00"
                   autoComplete="off"
@@ -248,20 +252,22 @@ export function AcademicianRegistrationPage() {
 
             <section className="space-y-3">
               <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-                Birim bilgileri
+                {t('ad.section.unit')}
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <SelectField
-                  label="Fakülte"
-                  placeholder="Fakülte seç"
+                  label={t('ad.field.faculty')}
+                  placeholder={t('ad.ph.selectFaculty')}
                   options={FACULTIES.map((faculty) => faculty.name)}
                   value={values.faculty}
                   error={errors.faculty}
                   onChange={(event) => update('faculty', event.target.value)}
                 />
                 <SelectField
-                  label="Bölüm"
-                  placeholder={values.faculty ? 'Bölüm seç' : 'Önce fakülte seç'}
+                  label={t('ad.field.department')}
+                  placeholder={
+                    values.faculty ? t('ad.ph.selectDepartment') : t('ad.ph.selectFacultyFirst')
+                  }
                   options={departmentsFor(values.faculty)}
                   value={values.department}
                   error={errors.department}
@@ -274,7 +280,7 @@ export function AcademicianRegistrationPage() {
             <div className="flex flex-wrap gap-2 border-t border-slate-200/70 pt-3.5 dark:border-white/[0.07]">
               <Button type="submit" className="px-4 py-2.5 text-[12px]">
                 <UserCheck className="h-4 w-4" aria-hidden />
-                Akademisyeni Kaydet
+                {t('ad.academician.submit')}
               </Button>
               <Button
                 type="button"
@@ -283,7 +289,7 @@ export function AcademicianRegistrationPage() {
                 className="px-4 py-2.5 text-[12px]"
               >
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-                Formu temizle
+                {t('ad.form.clear')}
               </Button>
             </div>
           </form>
@@ -292,17 +298,17 @@ export function AcademicianRegistrationPage() {
         <Card className="p-4">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">
-              Son kayıtlar
+              {t('ad.list.recent')}
             </h2>
             <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[9px] font-bold text-sky-600 dark:text-sky-300">
-              Toplam {items.length}
+              {t('ad.list.total', { count: items.length })}
             </span>
           </div>
 
           <ul className="mt-2 divide-y divide-slate-200/60 dark:divide-white/[0.06]">
             {latestAcademicians.length === 0 ? (
               <li className="py-8 text-center text-[10px] text-slate-400 dark:text-slate-500">
-                Henüz akademisyen kaydı yok.
+                {t('ad.academician.empty')}
               </li>
             ) : (
               latestAcademicians.map((academician) => {
@@ -316,7 +322,8 @@ export function AcademicianRegistrationPage() {
                         {fullName}
                       </p>
                       <p className="truncate text-[9px] text-slate-400 dark:text-slate-500">
-                        {academician.department} · Ofis {academician.office}
+                        {academician.department} ·{' '}
+                        {t('ad.office.withNumber', { office: academician.office })}
                       </p>
                       <p className="mt-0.5 truncate text-[8.5px] text-slate-400 dark:text-slate-500">
                         {academician.email}
@@ -329,8 +336,7 @@ export function AcademicianRegistrationPage() {
           </ul>
 
           <p className="mt-3 border-t border-slate-200/60 pt-2.5 text-[9px] leading-relaxed text-slate-400 dark:border-white/[0.06] dark:text-slate-500">
-            Yeni kayıtların görüşme saatleri ve ders atamaları, ilgili bölüm yöneticisi tarafından
-            güncellenebilir.
+            {t('ad.academician.officeNote')}
           </p>
         </Card>
       </div>

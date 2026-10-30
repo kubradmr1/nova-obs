@@ -24,7 +24,9 @@ import {
   SEED_FORM_REQUESTS,
   STUDENT_FORM_TYPES,
 } from '@/data/student-services';
+import { useI18n } from '@/hooks/useI18n';
 import { useStoredList } from '@/hooks/useStoredList';
+import type { MessageKey } from '@/i18n/messages';
 import type { FormRequestStatus, StudentFormRequest } from '@/types/student';
 import { cx } from '@/utils/cx';
 import { openStudentCertificate, openTranscriptDocument } from '@/utils/documentExport';
@@ -46,11 +48,11 @@ const STATUS_STYLES: Record<FormRequestStatus, string> = {
     'border-emerald-400/25 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/20 dark:text-emerald-300',
 };
 
-const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-});
+const STATUS_KEYS: Record<FormRequestStatus, MessageKey> = {
+  Hazırlanıyor: 'se.forms.status.preparing',
+  'Onay bekliyor': 'se.forms.status.pending',
+  Tamamlandı: 'se.forms.status.completed',
+};
 
 interface FormErrors {
   typeId?: string;
@@ -58,6 +60,7 @@ interface FormErrors {
 }
 
 export function StudentFormsPage() {
+  const { t, formatDate } = useI18n();
   const { items, add } = useStoredList<StudentFormRequest>(
     FORM_REQUESTS_STORAGE_KEY,
     SEED_FORM_REQUESTS,
@@ -80,8 +83,7 @@ export function StudentFormsPage() {
     if (!opened) {
       setDownloadFeedback({
         tone: 'warning',
-        message:
-          'Tarayıcı yeni pencereyi engelledi. Adres çubuğundaki açılır pencere iznini verip yeniden dene.',
+        message: t('se.forms.download.blocked'),
       });
       return;
     }
@@ -90,8 +92,8 @@ export function StudentFormsPage() {
       tone: 'success',
       message:
         kind === 'certificate'
-          ? 'E-imzalı öğrenci belgesi yeni sekmede hazırlandı. Açılan yazdırma penceresinden “PDF olarak kaydet” seçeneğini kullanabilirsin.'
-          : 'Transkript belgesi yeni sekmede hazırlandı. Yazdırma penceresinde hedef olarak “PDF olarak kaydet” seçeneğini seç.',
+          ? t('se.forms.download.certificate')
+          : t('se.forms.download.transcript'),
     });
   };
 
@@ -101,11 +103,11 @@ export function StudentFormsPage() {
     const nextErrors: FormErrors = {};
 
     if (!selectedType) {
-      nextErrors.typeId = 'Talep edeceğin belgeyi seç.';
+      nextErrors.typeId = t('se.forms.errors.type');
     }
 
     if (note.trim().length < 10) {
-      nextErrors.note = 'Talebinin nedenini en az 10 karakterle açıkla.';
+      nextErrors.note = t('se.forms.errors.note');
     }
 
     setErrors(nextErrors);
@@ -125,7 +127,10 @@ export function StudentFormsPage() {
     });
 
     setNotice(
-      `${selectedType.label} talebin alındı. Tahmini hazırlanma süresi: ${selectedType.processingTime}. Durumu bu ekrandan takip edebilirsin.`,
+      t('se.forms.notice', {
+        type: selectedType.label,
+        time: selectedType.processingTime,
+      }),
     );
     setTypeId('');
     setNote('');
@@ -135,15 +140,19 @@ export function StudentFormsPage() {
   return (
     <div className="animate-rise space-y-4">
       <PageHeader
-        eyebrow="Form İşlemleri"
-        title="Formlar & Belgeler"
-        description="Öğrenci belgesi, transkript, staj ve bulut laboratuvarı taleplerini buradan oluştur; hazırlanma durumunu takip et."
+        eyebrow={t('nav.groups.forms')}
+        title={t('nav.student.forms')}
+        description={t('se.forms.description')}
       />
 
       {downloadFeedback ? (
         <Notice
           tone={downloadFeedback.tone}
-          title={downloadFeedback.tone === 'success' ? 'Belge hazır' : 'Açılır pencere engellendi'}
+          title={
+            downloadFeedback.tone === 'success'
+              ? t('se.forms.download.readyTitle')
+              : t('se.forms.download.blockedTitle')
+          }
         >
           {downloadFeedback.message}
         </Notice>
@@ -158,16 +167,15 @@ export function StudentFormsPage() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
                 <h2 className="font-display text-[14px] font-bold text-slate-900 dark:text-white">
-                  Öğrenci Belgesi
+                  {t('se.forms.certificateTitle')}
                 </h2>
                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-bold text-emerald-700 dark:text-emerald-300">
                   <ShieldCheck className="h-2.5 w-2.5" aria-hidden />
-                  E-imzalı
+                  {t('se.forms.signed')}
                 </span>
               </div>
               <p className="mt-1 text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
-                Öğrencilik durumunu doğrulayan, danışman e-imzalı ve doğrulama kodlu belgeyi anında
-                oluştur.
+                {t('se.forms.certificateDescription')}
               </p>
             </div>
           </div>
@@ -177,7 +185,7 @@ export function StudentFormsPage() {
             onClick={() => handleQuickDownload('certificate')}
           >
             <Download className="h-4 w-4" aria-hidden />
-            Belgeyi İndir
+            {t('se.forms.downloadCertificate')}
           </Button>
         </Card>
 
@@ -189,16 +197,15 @@ export function StudentFormsPage() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
                 <h2 className="font-display text-[14px] font-bold text-slate-900 dark:text-white">
-                  Transkript
+                  {t('se.forms.transcriptTitle')}
                 </h2>
                 <span className="inline-flex items-center gap-1 rounded-full border border-sky-400/25 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-bold text-sky-700 dark:text-sky-300">
                   <BadgeCheck className="h-2.5 w-2.5" aria-hidden />
-                  PDF çıktı
+                  {t('se.forms.pdfOutput')}
                 </span>
               </div>
               <p className="mt-1 text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
-                Dönem dökümü, harf notları, GANO ve AKTS özetini içeren resmî görünümlü transkripti
-                indir.
+                {t('se.forms.transcriptDescription')}
               </p>
             </div>
           </div>
@@ -209,13 +216,13 @@ export function StudentFormsPage() {
             onClick={() => handleQuickDownload('transcript')}
           >
             <Download className="h-4 w-4" aria-hidden />
-            PDF İndir
+            {t('se.forms.downloadPdf')}
           </Button>
         </Card>
       </div>
 
       {notice ? (
-        <Notice tone="success" title="Talep oluşturuldu">
+        <Notice tone="success" title={t('se.forms.createdTitle')}>
           {notice}
         </Notice>
       ) : null}
@@ -228,18 +235,18 @@ export function StudentFormsPage() {
             </span>
             <div>
               <h2 className="font-display text-[15px] font-bold text-slate-900 dark:text-white">
-                Yeni belge talebi
+                {t('se.forms.newRequest')}
               </h2>
               <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                Talepler e-imzalı PDF olarak öğrenci e-postana gönderilir.
+                {t('se.forms.newRequestHint')}
               </p>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-3.5">
             <SelectField
-              label="Belge türü"
-              placeholder="Belge seç"
+              label={t('se.forms.documentType')}
+              placeholder={t('se.forms.documentPlaceholder')}
               options={STUDENT_FORM_TYPES.map((type) => type.label)}
               value={typeId}
               error={errors.typeId}
@@ -254,20 +261,20 @@ export function StudentFormsPage() {
               <div className="flex items-start gap-2 rounded-2xl border border-amber-200/70 bg-amber-50/60 px-3 py-2.5 text-[10.5px] leading-relaxed text-amber-800 dark:border-amber-400/20 dark:bg-amber-500/[0.07] dark:text-amber-200">
                 <Clock3 className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
                 <p>
-                  {selectedType.description} Tahmini hazırlanma süresi:{' '}
+                  {selectedType.description} {t('se.forms.processingLabel')}{' '}
                   <span className="font-semibold">{selectedType.processingTime}</span>.
                 </p>
               </div>
             ) : null}
 
             <TextAreaField
-              label="Açıklama"
+              label={t('se.forms.noteLabel')}
               rows={5}
               maxLength={300}
-              placeholder="Belgeyi hangi amaçla talep ettiğini kısaca yaz…"
+              placeholder={t('se.forms.notePlaceholder')}
               value={note}
               error={errors.note}
-              hint={`${note.length}/300 karakter`}
+              hint={t('se.forms.charCount', { count: note.length, max: 300 })}
               onChange={(event) => {
                 setNote(event.target.value);
                 setErrors((current) => ({ ...current, note: undefined }));
@@ -278,7 +285,7 @@ export function StudentFormsPage() {
             <div className="flex flex-wrap gap-2 border-t border-slate-200/70 pt-3.5 dark:border-white/[0.07]">
               <Button type="submit" className="px-4 py-2.5 text-[12px]">
                 <Send className="h-4 w-4" aria-hidden />
-                Talebi Gönder
+                {t('se.forms.submit')}
               </Button>
               <Button
                 type="button"
@@ -291,7 +298,7 @@ export function StudentFormsPage() {
                   setNotice(null);
                 }}
               >
-                Formu temizle
+                {t('se.forms.clear')}
               </Button>
             </div>
           </form>
@@ -301,14 +308,14 @@ export function StudentFormsPage() {
           <div className="flex items-center justify-between gap-2 p-4 pb-3">
             <div>
               <h2 className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">
-                Taleplerim
+                {t('se.forms.myRequests')}
               </h2>
               <p className="mt-0.5 text-[9.5px] text-slate-400 dark:text-slate-500">
-                En yeni talep listenin başında görünür
+                {t('se.forms.myRequestsHint')}
               </p>
             </div>
             <span className="rounded-full bg-brand-500/10 px-2 py-0.5 text-[9px] font-bold text-brand-600 dark:text-brand-300">
-              {items.length} talep
+              {t('se.forms.requestCount', { count: items.length })}
             </span>
           </div>
 
@@ -316,10 +323,10 @@ export function StudentFormsPage() {
             {items.length === 0 ? (
               <li className="px-4 py-10 text-center">
                 <p className="text-[12px] font-semibold text-slate-600 dark:text-slate-300">
-                  Henüz talep oluşturmadın
+                  {t('se.forms.emptyTitle')}
                 </p>
                 <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">
-                  Soldaki formdan ilk belge talebini oluşturabilirsin.
+                  {t('se.forms.emptyHint')}
                 </p>
               </li>
             ) : (
@@ -345,14 +352,18 @@ export function StudentFormsPage() {
                           {request.status === 'Tamamlandı' ? (
                             <CheckCircle2 className="h-2.5 w-2.5" aria-hidden />
                           ) : null}
-                          {request.status}
+                          {t(STATUS_KEYS[request.status])}
                         </span>
                       </div>
                       <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
                         {request.note}
                       </p>
                       <p className="mt-1 text-[8.5px] font-medium text-slate-400 dark:text-slate-600">
-                        {dateFormatter.format(new Date(request.createdAt))}
+                        {formatDate(request.createdAt, {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
                       </p>
                     </div>
                   </li>
@@ -362,7 +373,7 @@ export function StudentFormsPage() {
           </ul>
 
           <p className="border-t border-slate-200/60 px-4 py-2.5 text-[9px] leading-relaxed text-slate-400 dark:border-white/[0.06] dark:text-slate-500">
-            Talepler bu tarayıcıda saklanır; demo ortamında öğrenci işleri akışı simüle edilir.
+            {t('se.forms.storageNote')}
           </p>
         </Card>
       </div>
@@ -371,10 +382,10 @@ export function StudentFormsPage() {
         <div className="flex items-center justify-between gap-2">
           <div>
             <h2 className="font-display text-[14px] font-semibold text-slate-900 dark:text-white">
-              Sunulan belgeler
+              {t('se.forms.catalogTitle')}
             </h2>
             <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-              Bulut Bilişim Operatörlüğü öğrencilerine özel form kataloğu
+              {t('se.forms.catalogHint')}
             </p>
           </div>
           <CloudCog className="h-5 w-5 text-brand-500 dark:text-brand-300" aria-hidden />

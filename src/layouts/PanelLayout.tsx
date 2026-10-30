@@ -9,11 +9,13 @@ import {
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Avatar } from '@/components/ui/Avatar';
+import { LanguageToggle } from '@/components/ui/LanguageToggle';
 import { Logo } from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { UNIVERSITY_NAME, UNIVERSITY_SHORT } from '@/config/branding';
 import { getHomePath } from '@/config/roles';
 import { useAuth } from '@/hooks/useAuth';
+import { useI18n } from '@/hooks/useI18n';
 import type { Role } from '@/types/auth';
 import { cx } from '@/utils/cx';
 
@@ -205,6 +207,7 @@ function SidebarContent({
   onLogout,
   onNavigate,
 }: SidebarContentProps) {
+  const { t } = useI18n();
   const hasGroups = Boolean(navGroups && navGroups.length > 0);
 
   return (
@@ -217,7 +220,7 @@ function SidebarContent({
 
       {hasGroups ? (
         <nav
-          aria-label={`${portalLabel} menüsü`}
+          aria-label={portalLabel}
           className={cx('space-y-2', sidebarTop ? 'mt-3' : 'mt-5')}
         >
           {navGroups!.map((group) => (
@@ -227,9 +230,9 @@ function SidebarContent({
       ) : (
         <>
           <p className="mt-6 px-2 text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
-            Menü
+            {t('common.menu')}
           </p>
-          <nav aria-label={`${portalLabel} menüsü`} className="mt-2 space-y-1">
+          <nav aria-label={portalLabel} className="mt-2 space-y-1">
             {navItems.map((item) => (
               <NavRow key={item.to} item={item} onNavigate={onNavigate} />
             ))}
@@ -256,8 +259,8 @@ function SidebarContent({
             <button
               type="button"
               onClick={onLogout}
-              title="Oturumu kapat"
-              aria-label="Oturumu kapat"
+              title={t('common.logout')}
+              aria-label={t('common.logout')}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
             >
               <LogOut className="h-4 w-4" aria-hidden />
@@ -287,6 +290,7 @@ export function PanelLayout({
   unreadMessages = 0,
 }: PanelLayoutProps) {
   const { session, logout } = useAuth();
+  const { t, formatDate } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -325,7 +329,7 @@ export function PanelLayout({
   }
 
   const handleLogout = () => {
-    logout();
+    void logout();
     navigate('/', { replace: true });
   };
 
@@ -335,11 +339,11 @@ export function PanelLayout({
       (item) => item.to === location.pathname,
     )?.label ??
     'Panel';
-  const dateLabel = new Intl.DateTimeFormat('tr-TR', {
+  const dateLabel = formatDate(new Date(), {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  }).format(new Date());
+  });
 
   return (
     <div className="relative min-h-screen">
@@ -369,7 +373,7 @@ export function PanelLayout({
             <button
               type="button"
               onClick={() => setIsMenuOpen(true)}
-              aria-label="Menüyü aç"
+              aria-label={t('panel.menu.open')}
               aria-expanded={isMenuOpen}
               aria-controls="panel-mobile-nav"
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-white/70 text-slate-600 shadow-sm backdrop-blur transition-colors hover:border-brand-300 hover:text-brand-600 lg:hidden dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-300"
@@ -406,11 +410,11 @@ export function PanelLayout({
               {messageHref ? (
                 <Link
                   to={messageHref}
-                  title="Mesajlar"
+                  title={t('panel.messages')}
                   aria-label={
                     unreadMessages > 0
-                      ? `Mesajlar, ${unreadMessages} okunmamış`
-                      : 'Mesajlar'
+                      ? t('panel.messagesUnread', { count: unreadMessages })
+                      : t('panel.messages')
                   }
                   className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-white/70 text-slate-500 shadow-sm backdrop-blur transition-colors hover:border-brand-300 hover:text-brand-600 dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-300 dark:hover:border-brand-400/40 dark:hover:text-brand-300"
                 >
@@ -422,6 +426,7 @@ export function PanelLayout({
                   ) : null}
                 </Link>
               ) : null}
+              <LanguageToggle />
               <ThemeToggle />
             </div>
           </header>
@@ -440,7 +445,7 @@ export function PanelLayout({
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
-            aria-label="Menüyü kapat"
+            aria-label={t('panel.menu.close')}
             onClick={() => setIsMenuOpen(false)}
             className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
           />
@@ -448,13 +453,13 @@ export function PanelLayout({
             id="panel-mobile-nav"
             role="dialog"
             aria-modal="true"
-            aria-label="Panel menüsü"
+            aria-label={portalLabel}
             className="absolute inset-y-0 left-0 flex w-[292px] animate-slide-in flex-col overflow-y-auto rounded-r-[28px] border-r border-white/60 bg-[#f7f8fd] p-4 shadow-2xl dark:border-white/10 dark:bg-[#0c0b19]"
           >
             <button
               type="button"
               onClick={() => setIsMenuOpen(false)}
-              aria-label="Menüyü kapat"
+              aria-label={t('panel.menu.close')}
               className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white"
             >
               <X className="h-4 w-4" aria-hidden />

@@ -4,11 +4,13 @@ import { Card } from '@/components/ui/Card';
 import { LetterBadge } from '@/components/ui/LetterBadge';
 import {
   UNIVERSITY_NAME,
-  UNIVERSITY_UNIT,
   UNIVERSITY_VERIFICATION,
 } from '@/config/branding';
 import { ACADEMIC_HISTORY, COURSES, STUDENT } from '@/data/student';
 import { useAuth } from '@/hooks/useAuth';
+import { useI18n } from '@/hooks/useI18n';
+import { localizeClassYear, localizeTerm } from '@/utils/localeData';
+import type { MessageKey } from '@/i18n/messages';
 import type { SemesterRecord } from '@/types/student';
 import {
   computeAverage,
@@ -19,13 +21,13 @@ import {
   summarizeSemester,
 } from '@/utils/grading';
 
-const IDENTITY_FIELDS: Array<{ label: string; value: string }> = [
-  { label: 'Fakülte', value: STUDENT.faculty },
-  { label: 'Bölüm', value: STUDENT.department },
-  { label: 'Program', value: STUDENT.program },
-  { label: 'Sınıf', value: STUDENT.classYear },
-  { label: 'Kayıt yılı', value: STUDENT.enrolledAt },
-  { label: 'Danışman', value: STUDENT.advisor },
+const IDENTITY_FIELDS: Array<{ labelKey: MessageKey; value: string }> = [
+  { labelKey: 'sc.transcript.faculty', value: STUDENT.faculty },
+  { labelKey: 'sc.transcript.department', value: STUDENT.department },
+  { labelKey: 'sc.transcript.program', value: STUDENT.program },
+  { labelKey: 'sc.transcript.class', value: STUDENT.classYear },
+  { labelKey: 'sc.transcript.enrolledAt', value: STUDENT.enrolledAt },
+  { labelKey: 'sc.transcript.advisor', value: STUDENT.advisor },
 ];
 
 const STATUS_BADGES: Record<SemesterRecord['status'], string> = {
@@ -34,23 +36,24 @@ const STATUS_BADGES: Record<SemesterRecord['status'], string> = {
   ongoing: 'border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-300',
 };
 
-const STATUS_LABELS: Record<SemesterRecord['status'], string> = {
-  completed: 'Tamamlandı',
-  ongoing: 'Devam ediyor',
+const STATUS_LABELS: Record<SemesterRecord['status'], MessageKey> = {
+  completed: 'sc.transcript.completed',
+  ongoing: 'sc.transcript.ongoing',
 };
 
 export function TranscriptPage() {
   const { session } = useAuth();
+  const { t, formatDate, locale } = useI18n();
   const summary = summarizeSemester(COURSES);
   const ectsProgress = Math.round((STUDENT.completedEcts / STUDENT.totalEcts) * 100);
 
   const name = session?.name ?? STUDENT.name;
   const identifier = session?.identifier ?? STUDENT.identifier;
-  const issuedAt = new Intl.DateTimeFormat('tr-TR', {
+  const issuedAt = formatDate(new Date(), {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
-  }).format(new Date());
+  });
   const documentNo = `NOVA-TR-${new Date().getFullYear()}-${identifier}`;
 
   return (
@@ -58,13 +61,13 @@ export function TranscriptPage() {
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-            Resmî olmayan öğrenci belgesi
+            {t('sc.transcript.eyebrow')}
           </p>
           <h1 className="mt-1.5 font-display text-[26px] font-semibold tracking-tight text-slate-900 sm:text-[31px] dark:text-white">
-            Transkript
+            {t('sc.transcript.title')}
           </h1>
           <p className="mt-1 text-[11.5px] text-slate-500 dark:text-slate-400">
-            {STUDENT.term} itibarıyla akademik kayıt dökümün
+            {t('sc.transcript.description', { term: t('common.term') })}
           </p>
         </div>
         <Button
@@ -73,7 +76,7 @@ export function TranscriptPage() {
           className="w-fit px-4 py-2.5 text-[11.5px] print:hidden"
         >
           <Printer className="h-4 w-4" aria-hidden />
-          Yazdır / PDF
+          {t('sc.transcript.print')}
         </Button>
       </header>
 
@@ -93,13 +96,13 @@ export function TranscriptPage() {
                 {UNIVERSITY_NAME}
               </p>
               <p className="mt-0.5 text-[9px] text-slate-400 dark:text-slate-500">
-                {UNIVERSITY_UNIT} · {UNIVERSITY_VERIFICATION}
+                {t('brand.unit')} · {UNIVERSITY_VERIFICATION}
               </p>
             </div>
           </div>
           <div className="sm:text-right">
             <p className="text-[8px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-              Belge no
+              {t('sc.transcript.docNo')}
             </p>
             <p className="mt-0.5 text-[9.5px] font-semibold text-slate-700 dark:text-slate-200">
               {documentNo}
@@ -128,18 +131,20 @@ export function TranscriptPage() {
           </div>
           <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[9.5px] font-semibold text-emerald-600 dark:text-emerald-300">
             <ShieldCheck className="h-3 w-3" aria-hidden />
-            Aktif öğrenci
+            {t('sc.transcript.activeStudent')}
           </span>
         </div>
 
         <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-slate-100 pt-4 sm:grid-cols-3 lg:grid-cols-6 dark:border-white/[0.06]">
           {IDENTITY_FIELDS.map((field) => (
-            <div key={field.label}>
+            <div key={field.labelKey}>
               <dt className="text-[8.5px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-                {field.label}
+                {t(field.labelKey)}
               </dt>
               <dd className="mt-1 text-[10.5px] font-semibold leading-snug text-slate-700 dark:text-slate-200">
-                {field.value}
+                {field.labelKey === 'sc.transcript.class'
+                  ? localizeClassYear(field.value, locale)
+                  : field.value}
               </dd>
             </div>
           ))}
@@ -149,21 +154,21 @@ export function TranscriptPage() {
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
         <Card className="p-4">
           <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-            Genel not ortalaması
+            {t('sc.transcript.overallAverage')}
           </p>
           <p className="mt-1.5 flex items-baseline gap-1.5 font-display text-[24px] font-bold leading-none text-slate-900 dark:text-white">
             {formatGpa(STUDENT.cumulativeGpa)}
             <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">
-              / 4,00
+              {t('sc.gpa.scale')}
             </span>
           </p>
           <p className="mt-1 text-[9.5px] text-slate-400 dark:text-slate-500">
-            {ACADEMIC_HISTORY.length} dönem ortalaması
+            {t('sc.transcript.semestersAverage', { count: ACADEMIC_HISTORY.length })}
           </p>
         </Card>
         <Card className="p-4">
           <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-            Toplam AKTS
+            {t('sc.grades.totalEcts')}
           </p>
           <p className="mt-1.5 flex items-baseline gap-1.5 font-display text-[24px] font-bold leading-none text-slate-900 dark:text-white">
             {STUDENT.completedEcts}
@@ -180,16 +185,20 @@ export function TranscriptPage() {
         </Card>
         <Card className="p-4">
           <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-            Dönem ortalaması
+            {t('sc.gpa.termAverage')}
           </p>
           <p className="mt-1.5 flex items-baseline gap-1.5 font-display text-[24px] font-bold leading-none text-slate-900 dark:text-white">
             {formatGpa(summary.gpa)}
             <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">
-              / 4,00
+              {t('sc.gpa.scale')}
             </span>
           </p>
           <p className="mt-1 text-[9.5px] text-slate-400 dark:text-slate-500">
-            {summary.passedCount}/{COURSES.length} ders başarılı · {summary.ects} AKTS
+            {t('sc.transcript.termPassed', {
+              passed: summary.passedCount,
+              total: COURSES.length,
+              ects: summary.ects,
+            })}
           </p>
         </Card>
       </div>
@@ -198,41 +207,44 @@ export function TranscriptPage() {
         <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-5 py-4 dark:border-white/[0.06] sm:px-6">
           <div>
             <h2 className="font-display text-[15px] font-semibold text-slate-900 dark:text-white">
-              {STUDENT.term} dönem dökümü
+              {t('sc.transcript.termBreakdown', { term: t('common.term') })}
             </h2>
             <p className="mt-0.5 text-[10.5px] text-slate-400 dark:text-slate-500">
-              {summary.credits} kredi · {summary.ects} AKTS
+              {t('sc.transcript.creditsEcts', {
+                credits: summary.credits,
+                ects: summary.ects,
+              })}
             </p>
           </div>
           <span className="rounded-full border border-slate-200/80 bg-white/70 px-2.5 py-1 text-[9px] font-semibold text-slate-500 dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-400">
-            Güncel dönem
+            {t('sc.transcript.currentTerm')}
           </span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] border-collapse">
             <caption className="sr-only">
-              {STUDENT.term} dönemi ders, kredi, AKTS, harf notu ve katsayı dökümü
+              {t('sc.transcript.tableCaption', { term: t('common.term') })}
             </caption>
             <thead>
               <tr className="border-b border-slate-200/80 text-[9px] uppercase tracking-[0.14em] text-slate-400 dark:border-white/10 dark:text-slate-500">
                 <th scope="col" className="py-2.5 pl-5 pr-3 text-left font-semibold sm:pl-6">
-                  Ders
+                  {t('common.course')}
                 </th>
                 <th scope="col" className="px-3 py-2.5 text-center font-semibold">
-                  Kredi
+                  {t('sc.table.credits')}
                 </th>
                 <th scope="col" className="px-3 py-2.5 text-center font-semibold">
-                  AKTS
+                  {t('sc.table.ects')}
                 </th>
                 <th scope="col" className="px-3 py-2.5 text-center font-semibold">
-                  Ortalama
+                  {t('sc.table.average')}
                 </th>
                 <th scope="col" className="px-3 py-2.5 text-center font-semibold">
-                  Harf
+                  {t('sc.table.letterShort')}
                 </th>
                 <th scope="col" className="py-2.5 pl-3 pr-5 text-right font-semibold sm:pr-6">
-                  Katsayı
+                  {t('sc.transcript.coefficient')}
                 </th>
               </tr>
             </thead>
@@ -276,7 +288,7 @@ export function TranscriptPage() {
             <tfoot>
               <tr className="border-t border-slate-200/80 bg-slate-50/60 dark:border-white/10 dark:bg-white/[0.02]">
                 <td className="py-3 pl-5 pr-3 text-[10.5px] font-semibold text-slate-500 sm:pl-6 dark:text-slate-400">
-                  Dönem sonu
+                  {t('sc.transcript.endOfTerm')}
                 </td>
                 <td className="px-3 py-3 text-center text-[10.5px] font-semibold tabular-nums text-slate-600 dark:text-slate-300">
                   {summary.credits}
@@ -288,7 +300,7 @@ export function TranscriptPage() {
                   —
                 </td>
                 <td className="px-3 py-3 text-center text-[9px] font-semibold text-slate-400 dark:text-slate-500">
-                  GNO
+                  {t('sc.transcript.gpaShort')}
                 </td>
                 <td className="py-3 pl-3 pr-5 text-right text-[11.5px] font-bold tabular-nums text-slate-900 sm:pr-6 dark:text-white">
                   {formatGpa(summary.gpa)}
@@ -302,29 +314,29 @@ export function TranscriptPage() {
       <Card className="overflow-hidden print:break-inside-avoid print:bg-white print:shadow-none">
         <div className="px-5 py-4 sm:px-6">
           <h2 className="font-display text-[15px] font-semibold text-slate-900 dark:text-white">
-            Akademik geçmiş
+            {t('sc.transcript.history')}
           </h2>
           <p className="mt-0.5 text-[10.5px] text-slate-400 dark:text-slate-500">
-            Dönem bazlı not ortalamaları
+            {t('sc.transcript.historyHint')}
           </p>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] border-collapse">
-            <caption className="sr-only">Dönem bazlı AKTS, GNO ve durum bilgileri</caption>
+            <caption className="sr-only">{t('sc.transcript.historyCaption')}</caption>
             <thead>
               <tr className="border-y border-slate-200/80 text-[9px] uppercase tracking-[0.14em] text-slate-400 dark:border-white/10 dark:text-slate-500">
                 <th scope="col" className="py-2.5 pl-5 pr-3 text-left font-semibold sm:pl-6">
-                  Dönem
+                  {t('sc.transcript.semester')}
                 </th>
                 <th scope="col" className="px-3 py-2.5 text-center font-semibold">
-                  AKTS
+                  {t('sc.table.ects')}
                 </th>
                 <th scope="col" className="px-3 py-2.5 text-center font-semibold">
-                  GNO
+                  {t('sc.transcript.gpaShort')}
                 </th>
                 <th scope="col" className="py-2.5 pl-3 pr-5 text-right font-semibold sm:pr-6">
-                  Durum
+                  {t('common.status')}
                 </th>
               </tr>
             </thead>
@@ -332,7 +344,7 @@ export function TranscriptPage() {
               {ACADEMIC_HISTORY.map((semester) => (
                 <tr key={semester.term}>
                   <td className="py-3 pl-5 pr-3 text-[11.5px] font-semibold text-slate-800 sm:pl-6 dark:text-slate-100">
-                    {semester.term}
+                    {localizeTerm(semester.term, locale)}
                   </td>
                   <td className="px-3 py-3 text-center text-[11px] tabular-nums text-slate-600 dark:text-slate-300">
                     {semester.ects}
@@ -344,7 +356,7 @@ export function TranscriptPage() {
                     <span
                       className={`inline-flex rounded-full border px-2 py-0.5 text-[8.5px] font-semibold ${STATUS_BADGES[semester.status]}`}
                     >
-                      {STATUS_LABELS[semester.status]}
+                      {t(STATUS_LABELS[semester.status])}
                     </span>
                   </td>
                 </tr>
@@ -353,7 +365,7 @@ export function TranscriptPage() {
             <tfoot>
               <tr className="border-t border-slate-200/80 bg-slate-50/60 dark:border-white/10 dark:bg-white/[0.02]">
                 <td className="py-3 pl-5 pr-3 text-[10.5px] font-semibold text-slate-500 sm:pl-6 dark:text-slate-400">
-                  Genel toplam
+                  {t('sc.transcript.grandTotal')}
                 </td>
                 <td className="px-3 py-3 text-center text-[10.5px] font-semibold tabular-nums text-slate-600 dark:text-slate-300">
                   {STUDENT.completedEcts}
@@ -362,7 +374,7 @@ export function TranscriptPage() {
                   {formatGpa(STUDENT.cumulativeGpa)}
                 </td>
                 <td className="py-3 pl-3 pr-5 text-right text-[9px] font-semibold text-slate-400 sm:pr-6 dark:text-slate-500">
-                  {STUDENT.totalEcts} AKTS program
+                  {t('sc.transcript.programEcts', { ects: STUDENT.totalEcts })}
                 </td>
               </tr>
             </tfoot>
@@ -372,8 +384,7 @@ export function TranscriptPage() {
 
       <p className="flex items-start gap-2 rounded-2xl border border-slate-200/70 bg-white/60 px-4 py-3 text-[10px] leading-relaxed text-slate-400 dark:border-white/[0.07] dark:bg-white/[0.03] dark:text-slate-500 print:bg-white">
         <Info className="mt-px h-3 w-3 shrink-0 text-brand-500 dark:text-brand-300" aria-hidden />
-        Bu transkript demo amaçlı üretilmiştir ve resmî belge niteliği taşımaz. Resmî transkript
-        için öğrenci işleri birimine başvurmalısın.
+        {t('sc.transcript.note')}
       </p>
     </div>
   );

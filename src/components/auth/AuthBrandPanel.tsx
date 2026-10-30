@@ -7,14 +7,16 @@ import {
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { UNIVERSITY_NAME } from '@/config/branding';
+import { useI18n } from '@/hooks/useI18n';
+import type { MessageKey } from '@/i18n/messages';
 import { cx } from '@/utils/cx';
 import { BrandVisual } from './BrandVisual';
 
-const HIGHLIGHTS = [
-  { icon: BadgeCheck, label: 'Anlık not takibi' },
-  { icon: CalendarDays, label: 'Ders programı ve devam' },
-  { icon: MessageSquareText, label: 'Danışman iletişimi' },
-  { icon: CloudCog, label: 'Bulut laboratuvarı' },
+const HIGHLIGHTS: { icon: typeof BadgeCheck; key: MessageKey }[] = [
+  { icon: BadgeCheck, key: 'brand.highlight.grades' },
+  { icon: CalendarDays, key: 'brand.highlight.schedule' },
+  { icon: MessageSquareText, key: 'brand.highlight.messages' },
+  { icon: CloudCog, key: 'brand.highlight.cloud' },
 ];
 
 const AVATARS = [
@@ -24,9 +26,11 @@ const AVATARS = [
 ];
 
 export function AuthBrandPanel() {
+  const { t } = useI18n();
+
   return (
     <section
-      aria-label="OBS tanıtımı"
+      aria-label={t('brand.aria')}
       className="relative hidden overflow-hidden bg-[#0a0820] px-10 py-8 text-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col xl:px-14 xl:py-10"
     >
       <div
@@ -58,7 +62,7 @@ export function AuthBrandPanel() {
         <Logo tone="light" />
         <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[9px] font-medium uppercase tracking-[0.16em] text-white/60 backdrop-blur">
           <span className="h-1 w-1 rounded-full bg-emerald-400" />
-          2026–2027 Güz
+          {t('common.term')}
         </span>
       </header>
 
@@ -68,18 +72,17 @@ export function AuthBrandPanel() {
       >
         <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[10px] font-medium text-white/70 backdrop-blur">
           <Sparkles className="h-3 w-3 text-brand-300" aria-hidden />
-          Yeni nesil kampüs deneyimi
+          {t('brand.badge')}
         </span>
         <h2 className="mt-4 font-display text-[1.9rem] font-semibold leading-[1.14] tracking-tight xl:text-[2.35rem]">
-          Akademik hayatın
+          {t('brand.titleLine1')}
           <br />
           <span className="bg-[linear-gradient(100deg,#c4b5fd,#8b7bff_45%,#67e8f9)] bg-clip-text text-transparent">
-            tek bir akıllı panelde.
+            {t('brand.titleLine2')}
           </span>
         </h2>
         <p className="mt-3 max-w-[420px] text-[13px] leading-relaxed text-white/55">
-          {UNIVERSITY_NAME}’nde notlar, bulut laboratuvarı, devam durumu ve danışman
-          iletişimi — hepsi sade, hızlı ve güvenli bir arayüzde.
+          {t('brand.description', { university: UNIVERSITY_NAME })}
         </p>
       </div>
 
@@ -95,9 +98,9 @@ export function AuthBrandPanel() {
           {HIGHLIGHTS.map((highlight) => {
             const Icon = highlight.icon;
             return (
-              <li key={highlight.label} className="flex items-center gap-1.5 text-[10px] text-white/55">
+              <li key={highlight.key} className="flex items-center gap-1.5 text-[10px] text-white/55">
                 <Icon className="h-3.5 w-3.5 text-brand-300" aria-hidden />
-                {highlight.label}
+                {t(highlight.key)}
               </li>
             );
           })}
@@ -122,14 +125,14 @@ export function AuthBrandPanel() {
               </span>
             </div>
             <p className="text-[10px] leading-snug text-white/45">
-              <span className="font-semibold text-white/80">12.400+ öğrenci</span>
+              <span className="font-semibold text-white/80">{t('brand.students')}</span>
               <br />
-              OBS’i aktif kullanıyor
+              {t('brand.studentsHint')}
             </p>
           </div>
           <div className="hidden items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[9px] font-medium text-white/55 xl:flex">
             <CloudCog className="h-3 w-3" aria-hidden />
-            Bulut Bilişim Operatörlüğü
+            {t('brand.program')}
           </div>
         </div>
       </div>

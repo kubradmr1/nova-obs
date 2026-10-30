@@ -14,6 +14,8 @@ import { Card } from '@/components/ui/Card';
 import { LetterBadge } from '@/components/ui/LetterBadge';
 import { COURSES, STUDENT, UPCOMING_EXAMS } from '@/data/student';
 import { useAuth } from '@/hooks/useAuth';
+import { useI18n } from '@/hooks/useI18n';
+import { localizeClassYear, localizeTerm } from '@/utils/localeData';
 import {
   absenceLimit,
   attendanceStatus,
@@ -32,22 +34,9 @@ function dateFromNow(offsetDays: number): Date {
   return date;
 }
 
-const MONTH_SHORT = new Intl.DateTimeFormat('tr-TR', { month: 'short' });
-
-function countdownLabel(days: number): string {
-  if (days <= 0) {
-    return 'Bugün';
-  }
-
-  if (days === 1) {
-    return 'Yarın';
-  }
-
-  return `${days} gün kaldı`;
-}
-
 export function DashboardPage() {
   const { session } = useAuth();
+  const { t, formatDate, locale } = useI18n();
   const summary = summarizeSemester(COURSES);
   const attendance = summarizeAttendance(COURSES);
   const riskCourse = COURSES.find((course) => attendanceStatus(course) !== 'safe');
@@ -56,12 +45,24 @@ export function DashboardPage() {
   );
 
   const firstName = session?.name.trim().split(/\s+/)[0] ?? STUDENT.name.split(' ')[0];
-  const today = new Intl.DateTimeFormat('tr-TR', {
+  const today = formatDate(dateFromNow(0), {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  }).format(dateFromNow(0));
-  const weekday = new Intl.DateTimeFormat('tr-TR', { weekday: 'long' }).format(dateFromNow(0));
+  });
+  const weekday = formatDate(dateFromNow(0), { weekday: 'long' });
+
+  const countdownLabel = (days: number): string => {
+    if (days <= 0) {
+      return t('common.today');
+    }
+
+    if (days === 1) {
+      return t('sc.dash.tomorrow');
+    }
+
+    return t('sc.dash.daysLeft', { count: days });
+  };
 
   return (
     <div className="animate-rise space-y-4 sm:space-y-5">
@@ -70,41 +71,45 @@ export function DashboardPage() {
           {today} · {weekday}
         </p>
         <h1 className="mt-1.5 font-display text-[26px] font-semibold tracking-tight text-slate-900 sm:text-[31px] dark:text-white">
-          Merhaba, {firstName}
+          {t('sc.dash.greeting', { name: firstName })}
         </h1>
         <p className="mt-1 text-[11.5px] text-slate-500 dark:text-slate-400">
-          {STUDENT.term} · {STUDENT.classYear} · {STUDENT.department}
+          {localizeTerm(STUDENT.term, locale)} · {localizeClassYear(STUDENT.classYear, locale)} ·{' '}
+          {STUDENT.department}
         </p>
       </header>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Genel GNO"
+          label={t('sc.gpa.overall')}
           value={formatGpa(STUDENT.cumulativeGpa)}
-          suffix="/ 4,00"
-          hint={`${STUDENT.completedEcts} AKTS · 3. dönem`}
+          suffix={t('sc.gpa.scale')}
+          hint={t('sc.dash.overallHint', { ects: STUDENT.completedEcts })}
           icon={GraduationCap}
           tone="brand"
         />
         <StatCard
-          label="Dönem GNO"
+          label={t('sc.gpa.term')}
           value={formatGpa(summary.gpa)}
-          suffix="/ 4,00"
-          hint={`${summary.ects} AKTS · ${summary.credits} kredi`}
+          suffix={t('sc.gpa.scale')}
+          hint={t('sc.dash.termHint', { ects: summary.ects, credits: summary.credits })}
           icon={TrendingUp}
           tone="sky"
         />
         <StatCard
-          label="Devam oranı"
-          value={`%${formatGrade(attendance.rate)}`}
-          hint={`${attendance.absentHours} saat devamsızlık · ${attendance.riskyCount} riskli ders`}
+          label={t('sc.dash.attendanceRate')}
+          value={locale === 'en' ? `${formatGrade(attendance.rate)}%` : `%${formatGrade(attendance.rate)}`}
+          hint={t('sc.dash.attendanceHint', {
+            hours: attendance.absentHours,
+            courses: attendance.riskyCount,
+          })}
           icon={CalendarCheck}
           tone={attendance.riskyCount > 0 ? 'amber' : 'emerald'}
         />
         <StatCard
-          label="Yaklaşan sınav"
+          label={t('sc.dash.upcomingExam')}
           value={String(UPCOMING_EXAMS.length)}
-          hint={`En yakını ${nextExam.inDays} gün sonra`}
+          hint={t('sc.dash.nextExamHint', { days: nextExam.inDays })}
           icon={CalendarClock}
           tone="amber"
         />
@@ -115,17 +120,17 @@ export function DashboardPage() {
           <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-5 sm:px-6">
             <div>
               <h2 className="font-display text-[15px] font-semibold text-slate-900 dark:text-white">
-                Dönem notları
+                {t('sc.dash.termGrades')}
               </h2>
               <p className="mt-0.5 text-[10.5px] text-slate-400 dark:text-slate-500">
-                {STUDENT.term} · vize %40, final %60
+                {t('sc.dash.termGradesHint', { term: t('common.term') })}
               </p>
             </div>
             <Link
               to="/panel/dersler"
               className="inline-flex items-center gap-1 rounded-lg px-1 text-[10.5px] font-semibold text-brand-600 transition-colors hover:text-brand-500 dark:text-brand-300 dark:hover:text-brand-200"
             >
-              Tüm notlar
+              {t('sc.dash.allGrades')}
               <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
             </Link>
           </div>
@@ -154,7 +159,7 @@ export function DashboardPage() {
                       {formatGrade(average)}
                     </p>
                     <p className="text-[9px] text-slate-400 dark:text-slate-500">
-                      {course.ects} AKTS
+                      {course.ects} {t('sc.table.ects')}
                     </p>
                   </div>
                 </li>
@@ -164,12 +169,15 @@ export function DashboardPage() {
 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/50 px-5 py-3 sm:px-6 dark:border-white/[0.06] dark:bg-white/[0.02]">
             <span className="text-[10.5px] font-medium text-slate-500 dark:text-slate-400">
-              Dönem ortalaması
+              {t('sc.gpa.termAverage')}
             </span>
             <span className="flex items-center gap-2 text-[12px] font-semibold text-slate-800 dark:text-slate-100">
               <span className="tabular-nums">{formatGpa(summary.gpa)}</span>
               <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold text-emerald-600 dark:text-emerald-300">
-                {summary.passedCount}/{COURSES.length} başarılı
+                {t('sc.dash.passedCount', {
+                  passed: summary.passedCount,
+                  total: COURSES.length,
+                })}
               </span>
             </span>
           </div>
@@ -179,10 +187,10 @@ export function DashboardPage() {
           <Card className="overflow-hidden">
             <div className="px-5 pb-2.5 pt-5">
               <h2 className="font-display text-[14px] font-semibold text-slate-900 dark:text-white">
-                Yaklaşan sınavlar
+                {t('sc.dash.upcomingExams')}
               </h2>
               <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                Önümüzdeki üç hafta
+                {t('sc.dash.upcomingRange')}
               </p>
             </div>
             <ul className="divide-y divide-slate-100 dark:divide-white/[0.06]">
@@ -197,7 +205,7 @@ export function DashboardPage() {
                         {date.getDate()}
                       </span>
                       <span className="mt-1 text-[8px] font-semibold uppercase tracking-wide">
-                        {MONTH_SHORT.format(date).replace('.', '')}
+                        {formatDate(date, { month: 'short' }).replace('.', '')}
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
@@ -225,17 +233,20 @@ export function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <p className="text-[11.5px] font-semibold text-amber-800 dark:text-amber-200">
-                    Devamsızlık riski
+                    {t('sc.dash.absenceRisk')}
                   </p>
                   <p className="mt-1 text-[10.5px] leading-relaxed text-amber-700/80 dark:text-amber-200/70">
-                    {riskCourse.name} dersinde {riskCourse.absentHours} /{' '}
-                    {absenceLimit(riskCourse)} saat hakkın doldu. Kalan hakkını dikkatli kullan.
+                    {t('sc.dash.absenceRiskText', {
+                      course: riskCourse.name,
+                      used: riskCourse.absentHours,
+                      limit: absenceLimit(riskCourse),
+                    })}
                   </p>
                   <Link
                     to="/panel/devamsizlik"
                     className="mt-2 inline-flex items-center gap-1 rounded-lg text-[10px] font-semibold text-amber-800 transition-colors hover:text-amber-600 dark:text-amber-200 dark:hover:text-amber-100"
                   >
-                    Devamsızlık detayı
+                    {t('sc.dash.absenceDetail')}
                     <ArrowRight className="h-3 w-3" aria-hidden />
                   </Link>
                 </div>
@@ -261,14 +272,13 @@ export function DashboardPage() {
             </span>
             <div>
               <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-brand-200/80">
-                Harf Notu Simülatörü
+                {t('sc.sim.title')}
               </p>
               <h2 className="mt-1 font-display text-[17px] font-semibold tracking-tight sm:text-[19px]">
-                Finalden kaç alırsam geçerim?
+                {t('sc.sim.question')}
               </h2>
               <p className="mt-1 max-w-md text-[10.5px] leading-relaxed text-white/55">
-                Vize notunu ve hedef harf notunu seç; geçmen için gereken final notunu anında
-                hesapla.
+                {t('sc.sim.description')}
               </p>
             </div>
           </div>
@@ -276,7 +286,7 @@ export function DashboardPage() {
             to="/panel/dersler#simulator"
             className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-[11.5px] font-semibold text-brand-900 transition-all duration-300 hover:-translate-y-0.5 hover:bg-brand-50"
           >
-            Simülatörü aç
+            {t('sc.sim.open')}
             <ArrowRight className="h-3.5 w-3.5" aria-hidden />
           </Link>
         </div>

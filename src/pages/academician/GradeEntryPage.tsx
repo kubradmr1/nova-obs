@@ -7,6 +7,7 @@ import { Notice } from '@/components/ui/Notice';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Avatar } from '@/components/ui/Avatar';
 import { ACADEMICIAN_COURSES } from '@/data/academician';
+import { useI18n } from '@/hooks/useI18n';
 import type { GradeEntry, GradeMap } from '@/types/academician';
 import { cx } from '@/utils/cx';
 import {
@@ -54,6 +55,7 @@ function ScoreInput({ label, value, onChange }: ScoreInputProps) {
 }
 
 export function GradeEntryPage() {
+  const { t } = useI18n();
   const [state, setState] = useState<GradebookState>(() => {
     const loaded = loadGradebooks(ACADEMICIAN_COURSES);
     return { drafts: loaded, saved: cloneGradebooks(loaded) };
@@ -145,7 +147,11 @@ export function GradeEntryPage() {
     saveGradebooks(nextSaved);
     setState((current) => ({ ...current, saved: nextSaved }));
     setSavedNotice(
-      `${activeCourse.code} · ${activeCourse.name} için ${summary.total} öğrencinin notları kaydedildi.`,
+      t('ac.grade.savedNotice', {
+        code: activeCourse.code,
+        name: activeCourse.name,
+        count: summary.total,
+      }),
     );
   };
 
@@ -163,16 +169,16 @@ export function GradeEntryPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        eyebrow="Akademisyen Paneli"
-        title="Dersler & Not Girişi"
-        description="Ders seç, vize ve final notlarını gir. Ortalama ve harf notu anında hesaplanır; değişiklikleri 'Notları Kaydet' ile kalıcı hale getir."
+        eyebrow={t('panel.portal.academic')}
+        title={t('nav.academic.grades')}
+        description={t('ac.grade.description')}
       />
 
       <Card className="p-2">
         <div
           className="flex gap-1.5 overflow-x-auto"
           role="group"
-          aria-label="Not girilecek ders"
+          aria-label={t('ac.grade.courseGroup')}
         >
           {ACADEMICIAN_COURSES.map((course) => {
             const isActive = course.code === activeCourse.code;
@@ -209,7 +215,7 @@ export function GradeEntryPage() {
                       isActive ? 'text-white/70' : 'text-slate-400 dark:text-slate-500',
                     )}
                   >
-                    {course.roster.length} öğrenci · {course.schedule}
+                    {course.roster.length} {t('common.students')} · {course.schedule}
                   </span>
                 </span>
                 {hasChanges ? (
@@ -218,7 +224,7 @@ export function GradeEntryPage() {
                       'h-1.5 w-1.5 shrink-0 rounded-full',
                       isActive ? 'bg-amber-200' : 'bg-amber-500',
                     )}
-                    title="Kaydedilmemiş değişiklik"
+                    title={t('ac.grade.unsavedTitle')}
                   />
                 ) : null}
               </button>
@@ -228,7 +234,7 @@ export function GradeEntryPage() {
       </Card>
 
       {savedNotice ? (
-        <Notice tone="success" title="Notlar kaydedildi">
+        <Notice tone="success" title={t('ac.grade.savedTitle')}>
           {savedNotice}
         </Notice>
       ) : null}
@@ -246,8 +252,13 @@ export function GradeEntryPage() {
                 </span>
               </div>
               <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">
-                {activeCourse.term} · {activeCourse.credits} kredi · {activeCourse.ects} AKTS ·{' '}
-                {activeCourse.schedule}, {activeCourse.room}
+                {t('ac.grade.meta', {
+                  term: activeCourse.term,
+                  credits: activeCourse.credits,
+                  ects: activeCourse.ects,
+                  schedule: activeCourse.schedule,
+                  room: activeCourse.room,
+                })}
               </p>
             </div>
 
@@ -260,8 +271,8 @@ export function GradeEntryPage() {
                 type="search"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Öğrenci adı veya numarası ara…"
-                aria-label="Öğrenci ara"
+                placeholder={t('ac.grade.searchPlaceholder')}
+                aria-label={t('ac.grade.searchAria')}
                 className="h-9 w-full rounded-xl border border-slate-200/90 bg-white/80 pl-9 pr-3 text-[11px] font-medium text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-500/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-slate-500"
               />
             </div>
@@ -269,20 +280,21 @@ export function GradeEntryPage() {
 
           <div className="mt-3 flex flex-wrap gap-1.5">
             <span className="rounded-full border border-slate-200/80 bg-slate-50/80 px-2.5 py-1 text-[9px] font-semibold text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400">
-              Kayıtlı <span className="text-slate-800 dark:text-slate-100">{summary.total}</span>
+              {t('ac.grade.enrolled')}{' '}
+              <span className="text-slate-800 dark:text-slate-100">{summary.total}</span>
             </span>
             <span className="rounded-full border border-amber-200/80 bg-amber-50/80 px-2.5 py-1 text-[9px] font-semibold text-amber-700 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-300">
-              Not eksik <span className="font-bold">{summary.missing}</span>
+              {t('ac.grade.missing')} <span className="font-bold">{summary.missing}</span>
             </span>
             <span className="rounded-full border border-emerald-200/80 bg-emerald-50/80 px-2.5 py-1 text-[9px] font-semibold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-300">
-              Geçen <span className="font-bold">{summary.passed}</span>
+              {t('ac.grade.passed')} <span className="font-bold">{summary.passed}</span>
             </span>
             <span className="rounded-full border border-rose-200/80 bg-rose-50/80 px-2.5 py-1 text-[9px] font-semibold text-rose-600 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-300">
-              Kalan <span className="font-bold">{summary.failed}</span>
+              {t('ac.grade.failed')} <span className="font-bold">{summary.failed}</span>
             </span>
             {search ? (
               <span className="rounded-full border border-brand-200/80 bg-brand-50/80 px-2.5 py-1 text-[9px] font-semibold text-brand-600 dark:border-brand-400/20 dark:bg-brand-500/10 dark:text-brand-300">
-                {visibleStudents.length} sonuç
+                {t('ac.grade.resultCount', { count: visibleStudents.length })}
               </span>
             ) : null}
           </div>
@@ -293,22 +305,22 @@ export function GradeEntryPage() {
             <thead>
               <tr className="border-b border-slate-200/70 bg-slate-50/60 text-[8.5px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-slate-500">
                 <th scope="col" className="px-4 py-2.5">
-                  Öğrenci
+                  {t('ac.table.student')}
                 </th>
                 <th scope="col" className="px-3 py-2.5 text-center">
-                  Vize (%40)
+                  {t('ac.grade.midtermHeader')}
                 </th>
                 <th scope="col" className="px-3 py-2.5 text-center">
-                  Final (%60)
+                  {t('ac.grade.finalHeader')}
                 </th>
                 <th scope="col" className="px-3 py-2.5 text-center">
-                  Ortalama
+                  {t('ac.grade.average')}
                 </th>
                 <th scope="col" className="px-3 py-2.5 text-center">
-                  Harf Notu
+                  {t('ac.grade.letter')}
                 </th>
                 <th scope="col" className="px-4 py-2.5 text-right">
-                  Durum
+                  {t('common.status')}
                 </th>
               </tr>
             </thead>
@@ -317,10 +329,10 @@ export function GradeEntryPage() {
                 <tr>
                   <td colSpan={6} className="px-4 py-10 text-center">
                     <p className="text-[11.5px] font-semibold text-slate-600 dark:text-slate-300">
-                      Öğrenci bulunamadı
+                      {t('ac.grade.emptyTitle')}
                     </p>
                     <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">
-                      Arama ifadesini temizleyip tekrar dene.
+                      {t('ac.grade.emptyHint')}
                     </p>
                   </td>
                 </tr>
@@ -355,7 +367,7 @@ export function GradeEntryPage() {
                       <td className="px-3 py-2.5">
                         <div className="flex justify-center">
                           <ScoreInput
-                            label={`${student.name} vize notu`}
+                            label={t('ac.grade.midtermInput', { name: student.name })}
                             value={entry?.midterm ?? null}
                             onChange={(value) => updateScore(student.number, 'midterm', value)}
                           />
@@ -364,7 +376,7 @@ export function GradeEntryPage() {
                       <td className="px-3 py-2.5">
                         <div className="flex justify-center">
                           <ScoreInput
-                            label={`${student.name} final notu`}
+                            label={t('ac.grade.finalInput', { name: student.name })}
                             value={entry?.final ?? null}
                             onChange={(value) => updateScore(student.number, 'final', value)}
                           />
@@ -394,11 +406,11 @@ export function GradeEntryPage() {
                                 : 'bg-rose-500/10 text-rose-600 dark:text-rose-300',
                             )}
                           >
-                            {passing ? 'Geçti' : 'Kaldı'}
+                            {passing ? t('ac.grade.pass') : t('ac.grade.fail')}
                           </span>
                         ) : (
                           <span className="inline-flex rounded-full bg-amber-500/10 px-2 py-0.5 text-[8.5px] font-semibold text-amber-600 dark:text-amber-300">
-                            Not bekliyor
+                            {t('ac.grade.pending')}
                           </span>
                         )}
                       </td>
@@ -420,7 +432,7 @@ export function GradeEntryPage() {
               aria-hidden
             />
             <span className={dirty ? 'text-amber-600 dark:text-amber-300' : 'text-slate-400 dark:text-slate-500'}>
-              {dirty ? 'Kaydedilmemiş değişiklikler var' : 'Tüm değişiklikler kayıtlı'}
+              {dirty ? t('ac.grade.dirty') : t('ac.grade.clean')}
             </span>
           </div>
 
@@ -433,7 +445,7 @@ export function GradeEntryPage() {
               className="px-4 py-2.5 text-[11.5px]"
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-              Değişiklikleri geri al
+              {t('ac.grade.reset')}
             </Button>
             <Button
               type="button"
@@ -442,15 +454,14 @@ export function GradeEntryPage() {
               className="px-4 py-2.5 text-[11.5px]"
             >
               <Save className="h-3.5 w-3.5" aria-hidden />
-              Notları Kaydet
+              {t('ac.grade.save')}
             </Button>
           </div>
         </div>
       </Card>
 
       <p className="text-[9.5px] leading-relaxed text-slate-400 dark:text-slate-500">
-        Not girişleri bu tarayıcıda saklanır ve demo amaçlıdır. Vize %40, final %60 ağırlığıyla
-        hesaplanır; 60 ve üzeri ortalama (DD) geçer not kabul edilir.
+        {t('ac.grade.footnote')}
       </p>
     </div>
   );

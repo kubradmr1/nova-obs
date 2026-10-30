@@ -1,6 +1,11 @@
 import { Check, Megaphone, Pin, RotateCcw } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { AudienceBadge, CategoryBadge } from '@/components/admin/AnnouncementBadges';
+import {
+  AUDIENCE_KEYS,
+  AudienceBadge,
+  CATEGORY_KEYS,
+  CategoryBadge,
+} from '@/components/admin/AnnouncementBadges';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { InputField, SelectField, TextAreaField } from '@/components/ui/FormFields';
@@ -13,6 +18,7 @@ import {
   SEED_ANNOUNCEMENTS,
 } from '@/data/admin';
 import { useAuth } from '@/hooks/useAuth';
+import { useI18n } from '@/hooks/useI18n';
 import { useStoredList } from '@/hooks/useStoredList';
 import type {
   Announcement,
@@ -41,14 +47,9 @@ function createEmptyForm(): AnnouncementFormState {
   };
 }
 
-const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-});
-
 export function AnnouncementsPage() {
   const { session } = useAuth();
+  const { t, formatDate } = useI18n();
   const { items, add } = useStoredList<Announcement>(
     ANNOUNCEMENTS_STORAGE_KEY,
     SEED_ANNOUNCEMENTS,
@@ -70,19 +71,19 @@ export function AnnouncementsPage() {
     const next: AnnouncementFormErrors = {};
 
     if (values.title.trim().length < 5) {
-      next.title = 'Başlık en az 5 karakter olmalı.';
+      next.title = t('ad.validation.titleMin');
     }
 
     if (!values.category) {
-      next.category = 'Kategori seçimi zorunlu.';
+      next.category = t('ad.validation.categoryRequired');
     }
 
     if (!values.audience) {
-      next.audience = 'Hedef kitle seçimi zorunlu.';
+      next.audience = t('ad.validation.audienceRequired');
     }
 
     if (values.body.trim().length < 20) {
-      next.body = 'Duyuru metni en az 20 karakter olmalı.';
+      next.body = t('ad.validation.bodyMin');
     }
 
     return next;
@@ -107,10 +108,10 @@ export function AnnouncementsPage() {
       audience: values.audience as AnnouncementAudience,
       pinned: values.pinned,
       createdAt: new Date().toISOString(),
-      author: session?.name ?? 'Sistem Yöneticisi',
+      author: session?.name ?? t('ad.systemAdmin'),
     });
 
-    setNotice(`“${values.title.trim()}” başlıklı duyuru yayınlandı.`);
+    setNotice(t('ad.announcements.published', { title: values.title.trim() }));
     setValues(createEmptyForm());
     setErrors({});
   };
@@ -124,13 +125,13 @@ export function AnnouncementsPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        eyebrow="Yönetim Paneli"
-        title="Duyuru Yönetimi"
-        description="Okul genelinde duyuru yayınla; hedef kitleyi seç, duyuruyu sabitleyerek listenin üstünde tut."
+        eyebrow={t('panel.portal.admin')}
+        title={t('nav.admin.announcements')}
+        description={t('ad.announcements.description')}
       />
 
       {notice ? (
-        <Notice tone="success" title="Duyuru yayınlandı">
+        <Notice tone="success" title={t('ad.announcements.noticeTitle')}>
           {notice}
         </Notice>
       ) : null}
@@ -143,18 +144,18 @@ export function AnnouncementsPage() {
             </span>
             <div>
               <h2 className="font-display text-[15px] font-bold text-slate-900 dark:text-white">
-                Yeni duyuru
+                {t('ad.announcements.formTitle')}
               </h2>
               <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                Yayınlanan duyurular panellerde anında görünür.
+                {t('ad.announcements.formHint')}
               </p>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-3">
             <InputField
-              label="Duyuru Başlığı"
-              placeholder="Vize haftası takvimi yayımlandı"
+              label={t('ad.field.announcementTitle')}
+              placeholder={t('ad.ph.announcementTitle')}
               maxLength={120}
               value={values.title}
               error={errors.title}
@@ -163,15 +164,21 @@ export function AnnouncementsPage() {
 
             <div className="grid gap-3 sm:grid-cols-2">
               <SelectField
-                label="Kategori"
-                options={ANNOUNCEMENT_CATEGORIES}
+                label={t('ad.field.category')}
+                options={ANNOUNCEMENT_CATEGORIES.map((category) => ({
+                  value: category,
+                  label: t(CATEGORY_KEYS[category]),
+                }))}
                 value={values.category}
                 error={errors.category}
                 onChange={(event) => update('category', event.target.value)}
               />
               <SelectField
-                label="Hedef Kitle"
-                options={ANNOUNCEMENT_AUDIENCES}
+                label={t('ad.field.audience')}
+                options={ANNOUNCEMENT_AUDIENCES.map((audience) => ({
+                  value: audience,
+                  label: t(AUDIENCE_KEYS[audience]),
+                }))}
                 value={values.audience}
                 error={errors.audience}
                 onChange={(event) => update('audience', event.target.value)}
@@ -179,13 +186,13 @@ export function AnnouncementsPage() {
             </div>
 
             <TextAreaField
-              label="Duyuru Metni"
+              label={t('ad.field.body')}
               rows={7}
               maxLength={1000}
-              placeholder="Duyurunun ayrıntılarını, tarihleri ve başvuru koşullarını buraya yaz…"
+              placeholder={t('ad.ph.announcementBody')}
               value={values.body}
               error={errors.body}
-              hint={`${values.body.length}/1000 karakter`}
+              hint={t('ad.announcements.charCount', { count: values.body.length })}
               onChange={(event) => update('body', event.target.value)}
             />
 
@@ -208,10 +215,10 @@ export function AnnouncementsPage() {
               </span>
               <span>
                 <span className="block text-[10.5px] font-semibold text-slate-700 dark:text-slate-200">
-                  Duyuruyu sabitle
+                  {t('ad.announcements.pin')}
                 </span>
                 <span className="mt-0.5 block text-[9px] leading-relaxed text-slate-400 dark:text-slate-500">
-                  Sabitlenen duyurular öğrenci ve akademisyen panellerinde öne çıkarılır.
+                  {t('ad.announcements.pinHint')}
                 </span>
               </span>
             </label>
@@ -219,7 +226,7 @@ export function AnnouncementsPage() {
             <div className="flex flex-wrap gap-2 border-t border-slate-200/70 pt-3.5 dark:border-white/[0.07]">
               <Button type="submit" className="px-4 py-2.5 text-[12px]">
                 <Megaphone className="h-4 w-4" aria-hidden />
-                Duyuruyu Yayınla
+                {t('ad.announcements.submit')}
               </Button>
               <Button
                 type="button"
@@ -228,7 +235,7 @@ export function AnnouncementsPage() {
                 className="px-4 py-2.5 text-[12px]"
               >
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-                Formu temizle
+                {t('ad.form.clear')}
               </Button>
             </div>
           </form>
@@ -238,21 +245,21 @@ export function AnnouncementsPage() {
           <div className="flex items-center justify-between gap-2 p-4">
             <div>
               <h2 className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">
-                Yayındaki duyurular
+                {t('ad.announcements.listTitle')}
               </h2>
               <p className="mt-0.5 text-[9.5px] text-slate-400 dark:text-slate-500">
-                En yeni duyuru listenin başında görünür
+                {t('ad.announcements.listHint')}
               </p>
             </div>
             <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-300">
-              {items.length} duyuru
+              {t('ad.announcements.count', { count: items.length })}
             </span>
           </div>
 
           <ul className="max-h-[620px] divide-y divide-slate-200/60 overflow-y-auto border-t border-slate-200/70 dark:divide-white/[0.06] dark:border-white/[0.07]">
             {items.length === 0 ? (
               <li className="px-4 py-10 text-center text-[10px] text-slate-400 dark:text-slate-500">
-                Henüz yayınlanmış duyuru yok.
+                {t('ad.announcements.empty')}
               </li>
             ) : (
               items.map((announcement) => (
@@ -263,11 +270,15 @@ export function AnnouncementsPage() {
                     {announcement.pinned ? (
                       <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[8.5px] font-semibold text-amber-600 dark:text-amber-300">
                         <Pin className="h-2.5 w-2.5" aria-hidden />
-                        Sabit
+                        {t('ad.announcements.pinnedBadge')}
                       </span>
                     ) : null}
                     <span className="ml-auto text-[8px] text-slate-400 dark:text-slate-500">
-                      {dateFormatter.format(new Date(announcement.createdAt))}
+                      {formatDate(announcement.createdAt, {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })}
                     </span>
                   </div>
                   <p className="mt-1.5 text-[11.5px] font-semibold leading-snug text-slate-800 dark:text-slate-100">
@@ -280,7 +291,7 @@ export function AnnouncementsPage() {
                     <span>{announcement.author}</span>
                     <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-300">
                       <span className="h-1 w-1 rounded-full bg-emerald-500" aria-hidden />
-                      Yayında
+                      {t('ad.status.published')}
                     </span>
                   </div>
                 </li>

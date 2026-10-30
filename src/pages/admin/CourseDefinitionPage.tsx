@@ -16,8 +16,10 @@ import {
 } from '@/data/admin';
 import { ACADEMICIANS } from '@/data/academicians';
 import { COURSES } from '@/data/student';
+import { useI18n } from '@/hooks/useI18n';
 import { useStoredList } from '@/hooks/useStoredList';
 import type { DefinedCourse } from '@/types/admin';
+import { localizeTerm } from '@/utils/localeData';
 import { readCollection } from '@/utils/storage';
 
 interface CourseFormState {
@@ -49,6 +51,7 @@ function createEmptyForm(): CourseFormState {
 }
 
 export function CourseDefinitionPage() {
+  const { t, locale } = useI18n();
   const { items, add } = useStoredList<DefinedCourse>(COURSES_STORAGE_KEY, SEED_COURSES);
   const [values, setValues] = useState<CourseFormState>(createEmptyForm);
   const [errors, setErrors] = useState<CourseFormErrors>({});
@@ -87,47 +90,47 @@ export function CourseDefinitionPage() {
     ]);
 
     if (!/^[A-Z]{2,4}\d{3,4}$/.test(code)) {
-      next.code = 'Ders kodu 2–4 harf ve 3–4 rakamdan oluşmalı (örn. BM401).';
+      next.code = t('ad.validation.courseCode');
     } else if (existingCodes.has(code)) {
-      next.code = 'Bu ders kodu zaten tanımlı.';
+      next.code = t('ad.validation.courseCodeTaken');
     }
 
     if (values.name.trim().length < 3) {
-      next.name = 'Ders adı en az 3 karakter olmalı.';
+      next.name = t('ad.validation.courseName');
     }
 
     if (!values.faculty) {
-      next.faculty = 'Fakülte seçimi zorunlu.';
+      next.faculty = t('ad.validation.facultyRequired');
     }
 
     if (!values.department) {
-      next.department = 'Bölüm seçimi zorunlu.';
+      next.department = t('ad.validation.departmentRequired');
     }
 
     if (!values.instructor) {
-      next.instructor = 'Dersi verecek akademisyeni seç.';
+      next.instructor = t('ad.validation.instructorRequired');
     }
 
     const credits = Number(values.credits);
 
     if (!/^\d+$/.test(values.credits) || credits < 1 || credits > 10) {
-      next.credits = 'Kredi 1–10 arasında olmalı.';
+      next.credits = t('ad.validation.credits');
     }
 
     const ects = Number(values.ects);
 
     if (!/^\d+$/.test(values.ects) || ects < 1 || ects > 30) {
-      next.ects = 'AKTS 1–30 arasında olmalı.';
+      next.ects = t('ad.validation.ects');
     }
 
     const quota = Number(values.quota);
 
     if (!/^\d+$/.test(values.quota) || quota < 1 || quota > 500) {
-      next.quota = 'Kontenjan 1–500 arasında olmalı.';
+      next.quota = t('ad.validation.quota');
     }
 
     if (!values.term) {
-      next.term = 'Dönem seçimi zorunlu.';
+      next.term = t('ad.validation.termRequired');
     }
 
     return next;
@@ -158,7 +161,11 @@ export function CourseDefinitionPage() {
     });
 
     setNotice(
-      `${values.code.trim()} · ${values.name.trim()} dersi tanımlandı ve ${values.instructor} ile eşleştirildi.`,
+      t('ad.course.created', {
+        code: values.code.trim(),
+        name: values.name.trim(),
+        instructor: values.instructor,
+      }),
     );
     setValues(createEmptyForm());
     setErrors({});
@@ -173,13 +180,13 @@ export function CourseDefinitionPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        eyebrow="Yönetim Paneli"
-        title="Ders Tanımlama"
-        description="Müfredata yeni ders ekle, dersin akademisyenini, kredi/AKTS değerlerini ve kontenjanını belirle."
+        eyebrow={t('panel.portal.admin')}
+        title={t('nav.admin.courseDefinition')}
+        description={t('ad.course.description')}
       />
 
       {notice ? (
-        <Notice tone="success" title="Ders tanımlandı">
+        <Notice tone="success" title={t('ad.course.noticeTitle')}>
           {notice}
         </Notice>
       ) : null}
@@ -192,10 +199,10 @@ export function CourseDefinitionPage() {
             </span>
             <div>
               <h2 className="font-display text-[15px] font-bold text-slate-900 dark:text-white">
-                Yeni ders
+                {t('ad.course.formTitle')}
               </h2>
               <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                Ders kodu sistemde benzersiz olmalıdır.
+                {t('ad.course.formHint')}
               </p>
             </div>
           </div>
@@ -203,7 +210,7 @@ export function CourseDefinitionPage() {
           <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <InputField
-                label="Ders Kodu"
+                label={t('ad.field.courseCode')}
                 placeholder="BM401"
                 autoComplete="off"
                 maxLength={8}
@@ -214,7 +221,7 @@ export function CourseDefinitionPage() {
                 }
               />
               <InputField
-                label="Ders Adı"
+                label={t('ad.field.courseName')}
                 placeholder="Makine Öğrenmesi"
                 autoComplete="off"
                 value={values.name}
@@ -222,16 +229,18 @@ export function CourseDefinitionPage() {
                 onChange={(event) => update('name', event.target.value)}
               />
               <SelectField
-                label="Fakülte"
-                placeholder="Fakülte seç"
+                label={t('ad.field.faculty')}
+                placeholder={t('ad.ph.selectFaculty')}
                 options={FACULTIES.map((faculty) => faculty.name)}
                 value={values.faculty}
                 error={errors.faculty}
                 onChange={(event) => update('faculty', event.target.value)}
               />
               <SelectField
-                label="Bölüm"
-                placeholder={values.faculty ? 'Bölüm seç' : 'Önce fakülte seç'}
+                label={t('ad.field.department')}
+                placeholder={
+                  values.faculty ? t('ad.ph.selectDepartment') : t('ad.ph.selectFacultyFirst')
+                }
                 options={departmentsFor(values.faculty)}
                 value={values.department}
                 error={errors.department}
@@ -239,8 +248,8 @@ export function CourseDefinitionPage() {
                 onChange={(event) => update('department', event.target.value)}
               />
               <SelectField
-                label="Akademisyen"
-                placeholder="Akademisyen seç"
+                label={t('ad.field.instructor')}
+                placeholder={t('ad.ph.selectInstructor')}
                 options={instructorOptions}
                 value={values.instructor}
                 error={errors.instructor}
@@ -248,14 +257,17 @@ export function CourseDefinitionPage() {
                 onChange={(event) => update('instructor', event.target.value)}
               />
               <SelectField
-                label="Dönem"
-                options={TERM_OPTIONS}
+                label={t('ad.field.term')}
+                options={TERM_OPTIONS.map((term) => ({
+                  value: term,
+                  label: localizeTerm(term, locale),
+                }))}
                 value={values.term}
                 error={errors.term}
                 onChange={(event) => update('term', event.target.value)}
               />
               <InputField
-                label="Kontenjan"
+                label={t('ad.field.quota')}
                 inputMode="numeric"
                 placeholder="60"
                 value={values.quota}
@@ -263,7 +275,7 @@ export function CourseDefinitionPage() {
                 onChange={(event) => update('quota', event.target.value.replace(/\D/g, ''))}
               />
               <InputField
-                label="Kredi"
+                label={t('ad.field.credits')}
                 inputMode="numeric"
                 placeholder="3"
                 value={values.credits}
@@ -271,7 +283,7 @@ export function CourseDefinitionPage() {
                 onChange={(event) => update('credits', event.target.value.replace(/\D/g, ''))}
               />
               <InputField
-                label="AKTS"
+                label={t('ad.field.ects')}
                 inputMode="numeric"
                 placeholder="5"
                 value={values.ects}
@@ -283,7 +295,7 @@ export function CourseDefinitionPage() {
             <div className="flex flex-wrap gap-2 border-t border-slate-200/70 pt-3.5 dark:border-white/[0.07]">
               <Button type="submit" className="px-4 py-2.5 text-[12px]">
                 <BookPlus className="h-4 w-4" aria-hidden />
-                Dersi Tanımla
+                {t('ad.course.submit')}
               </Button>
               <Button
                 type="button"
@@ -292,7 +304,7 @@ export function CourseDefinitionPage() {
                 className="px-4 py-2.5 text-[12px]"
               >
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-                Formu temizle
+                {t('ad.form.clear')}
               </Button>
             </div>
           </form>
@@ -302,14 +314,14 @@ export function CourseDefinitionPage() {
           <div className="flex items-center justify-between gap-2 p-4">
             <div>
               <h2 className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">
-                Tanımlı dersler
+                {t('ad.course.listTitle')}
               </h2>
               <p className="mt-0.5 text-[9.5px] text-slate-400 dark:text-slate-500">
-                Bu panelden eklenen dersler ve demo başlangıç kayıtları
+                {t('ad.course.listHint')}
               </p>
             </div>
             <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-300">
-              {items.length} ders
+              {t('ad.course.count', { count: items.length })}
             </span>
           </div>
 
@@ -318,22 +330,22 @@ export function CourseDefinitionPage() {
               <thead>
                 <tr className="border-y border-slate-200/70 bg-slate-50/60 text-[8.5px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:border-white/[0.07] dark:bg-white/[0.025] dark:text-slate-500">
                   <th scope="col" className="px-4 py-2.5">
-                    Kod
+                    {t('ad.table.code')}
                   </th>
                   <th scope="col" className="px-3 py-2.5">
-                    Ders
+                    {t('common.course')}
                   </th>
                   <th scope="col" className="px-3 py-2.5">
-                    Akademisyen
+                    {t('ad.field.instructor')}
                   </th>
                   <th scope="col" className="px-3 py-2.5 text-center">
-                    Kredi / AKTS
+                    {t('ad.table.creditsEcts')}
                   </th>
                   <th scope="col" className="px-3 py-2.5 text-center">
-                    Kontenjan
+                    {t('ad.field.quota')}
                   </th>
                   <th scope="col" className="px-4 py-2.5 text-right">
-                    Dönem
+                    {t('ad.field.term')}
                   </th>
                 </tr>
               </thead>
@@ -341,7 +353,7 @@ export function CourseDefinitionPage() {
                 {items.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-10 text-center text-[10px] text-slate-400 dark:text-slate-500">
-                      Henüz ders tanımı yok.
+                      {t('ad.course.empty')}
                     </td>
                   </tr>
                 ) : (
@@ -383,7 +395,7 @@ export function CourseDefinitionPage() {
           </div>
 
           <p className="border-t border-slate-200/60 px-4 py-2.5 text-[9px] leading-relaxed text-slate-400 dark:border-white/[0.06] dark:text-slate-500">
-            Öğrenci panelindeki mevcut ders kodları da benzersizlik kontrolüne dahil edilir.
+            {t('ad.course.footerNote')}
           </p>
         </Card>
       </div>

@@ -17,6 +17,7 @@ import { StatCard } from '@/components/student/StatCard';
 import { ACADEMICIAN_AGENDA, ACADEMICIAN_COURSES } from '@/data/academician';
 import { DEFAULT_ACADEMICIAN_ID, findAcademicianById, getAcademicianIdForSession } from '@/data/academicians';
 import { useAuth } from '@/hooks/useAuth';
+import { useI18n } from '@/hooks/useI18n';
 import { useMessaging } from '@/hooks/useMessaging';
 import type { AcademicianCourse, GradeMap } from '@/types/academician';
 import { cx } from '@/utils/cx';
@@ -63,24 +64,15 @@ function getCourseStats(course: AcademicianCourse, gradeMap: GradeMap): CourseSt
   };
 }
 
-const timeFormatter = new Intl.DateTimeFormat('tr-TR', {
-  hour: '2-digit',
-  minute: '2-digit',
-});
-
-const shortDateFormatter = new Intl.DateTimeFormat('tr-TR', {
-  day: '2-digit',
-  month: '2-digit',
-});
-
-function formatMessageTime(iso: string): string {
-  const date = new Date(iso);
-  return date.toDateString() === new Date().toDateString()
-    ? timeFormatter.format(date)
-    : shortDateFormatter.format(date);
-}
-
 export function AcademicianDashboardPage() {
+  const { t, formatDate, formatTime } = useI18n();
+
+  const formatMessageTime = (iso: string): string => {
+    const date = new Date(iso);
+    return date.toDateString() === new Date().toDateString()
+      ? formatTime(date)
+      : formatDate(date, { day: '2-digit', month: '2-digit' });
+  };
   const { session } = useAuth();
   const { chats } = useMessaging();
   const [gradebooks] = useState(() => loadGradebooks(ACADEMICIAN_COURSES));
@@ -119,24 +111,24 @@ export function AcademicianDashboardPage() {
     .filter((chat) => chat.academicianId === academicianId)
     .reduce((total, chat) => total + chat.unreadForAcademician, 0);
 
-  const todayLabel = new Intl.DateTimeFormat('tr-TR', {
+  const todayLabel = formatDate(new Date(), {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-  }).format(new Date());
+  });
 
   return (
     <div className="space-y-4">
       <PageHeader
-        eyebrow="Akademisyen Paneli"
-        title={`Merhaba, ${profile?.name ?? 'Mert Hocam'}`}
-        description="Derslerini, not girişlerini ve öğrenci mesajlarını tek ekrandan yönet. Bugünün programı ve bekleyen işler aşağıda."
+        eyebrow={t('panel.portal.academic')}
+        title={t('ac.dash.greeting', { name: profile?.name ?? 'Mert Hocam' })}
+        description={t('ac.dash.description')}
         actions={
           <Link
             to="/hoca/not-girisi"
             className="group inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(110deg,#7c5cff_0%,#5f6bff_48%,#a855f7_100%)] px-4 py-2.5 text-[12px] font-semibold text-white shadow-[0_16px_34px_-18px_rgba(124,92,255,0.9)] transition-transform duration-200 hover:-translate-y-0.5"
           >
-            Not girişine git
+            {t('ac.dash.goGradeEntry')}
             <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
           </Link>
         }
@@ -144,31 +136,31 @@ export function AcademicianDashboardPage() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Aktif Ders"
+          label={t('ac.dash.stat.activeCourses')}
           value={String(ACADEMICIAN_COURSES.length)}
-          hint="2026–2027 Güz dönemi"
+          hint={t('ac.dash.hint.term')}
           icon={BookOpen}
           tone="brand"
         />
         <StatCard
-          label="Toplam Öğrenci"
+          label={t('ac.dash.stat.totalStudents')}
           value={String(totalStudents)}
-          hint="Tüm derslerindeki kayıtlı öğrenci"
+          hint={t('ac.dash.hint.students')}
           icon={Users}
           tone="sky"
         />
         <StatCard
-          label="Başarı Oranı"
+          label={t('ac.dash.stat.passRate')}
           value={String(Math.round(passRate))}
           suffix="%"
-          hint="Güncel not girişlerine göre"
+          hint={t('ac.dash.hint.passRate')}
           icon={BadgeCheck}
           tone="emerald"
         />
         <StatCard
-          label="Okunmamış Mesaj"
+          label={t('ac.dash.stat.unread')}
           value={String(unread)}
-          hint={unread > 0 ? 'Yanıt bekleyen öğrenci mesajı' : 'Tüm mesajlar okundu'}
+          hint={unread > 0 ? t('ac.dash.hint.unread') : t('ac.dash.hint.noUnread')}
           icon={MessageSquare}
           tone={unread > 0 ? 'rose' : 'amber'}
         />
@@ -178,10 +170,10 @@ export function AcademicianDashboardPage() {
         <div className="min-w-0 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-              Derslerim
+              {t('ac.dash.myCourses')}
             </h2>
             <span className="text-[9.5px] text-slate-400 dark:text-slate-500">
-              {ACADEMICIAN_COURSES[0]?.term ?? '2026–2027 Güz'}
+              {ACADEMICIAN_COURSES[0]?.term ?? t('common.term')}
             </span>
           </div>
 
@@ -193,7 +185,7 @@ export function AcademicianDashboardPage() {
                     {course.code}
                   </span>
                   <span className="rounded-full border border-emerald-200/70 bg-emerald-50/80 px-2 py-0.5 text-[8.5px] font-semibold text-emerald-600 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-300">
-                    Aktif
+                    {t('ac.dash.active')}
                   </span>
                 </div>
 
@@ -214,7 +206,7 @@ export function AcademicianDashboardPage() {
                 <div className="mt-3 grid grid-cols-3 gap-2 rounded-2xl border border-slate-200/70 bg-slate-50/70 p-2.5 dark:border-white/[0.07] dark:bg-white/[0.03]">
                   <div>
                     <p className="text-[8px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
-                      Öğrenci
+                      {t('ac.table.student')}
                     </p>
                     <p className="mt-0.5 text-[13px] font-bold text-slate-800 dark:text-slate-100">
                       {course.roster.length}
@@ -222,7 +214,7 @@ export function AcademicianDashboardPage() {
                   </div>
                   <div>
                     <p className="text-[8px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
-                      Ortalama
+                      {t('ac.grade.average')}
                     </p>
                     <p className="mt-0.5 text-[13px] font-bold text-slate-800 dark:text-slate-100">
                       {formatGrade(stats.average)}
@@ -230,7 +222,7 @@ export function AcademicianDashboardPage() {
                   </div>
                   <div>
                     <p className="text-[8px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">
-                      Geçen
+                      {t('ac.grade.passed')}
                     </p>
                     <p className="mt-0.5 text-[13px] font-bold text-emerald-600 dark:text-emerald-300">
                       {stats.passed}
@@ -243,7 +235,7 @@ export function AcademicianDashboardPage() {
 
                 <div className="mt-3">
                   <div className="flex items-center justify-between text-[9px] font-medium text-slate-400 dark:text-slate-500">
-                    <span>Başarı oranı</span>
+                    <span>{t('ac.grade.passRate')}</span>
                     <span>{Math.round(stats.passRate)}%</span>
                   </div>
                   <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200/70 dark:bg-white/[0.08]">
@@ -263,13 +255,15 @@ export function AcademicianDashboardPage() {
                         : 'text-slate-400 dark:text-slate-500',
                     )}
                   >
-                    {stats.missing > 0 ? `${stats.missing} not eksik` : 'Tüm notlar girildi'}
+                    {stats.missing > 0
+                      ? t('ac.dash.missingGrades', { count: stats.missing })
+                      : t('ac.dash.allGraded')}
                   </span>
                   <Link
                     to="/hoca/not-girisi"
                     className="inline-flex items-center gap-1 text-[10px] font-semibold text-brand-600 transition-colors hover:text-brand-500 dark:text-brand-300 dark:hover:text-brand-200"
                   >
-                    Notları düzenle
+                    {t('ac.dash.editGrades')}
                     <ArrowRight className="h-3 w-3" aria-hidden />
                   </Link>
                 </div>
@@ -283,7 +277,7 @@ export function AcademicianDashboardPage() {
             <div className="flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-800 dark:text-slate-100">
                 <CalendarDays className="h-3.5 w-3.5 text-brand-500 dark:text-brand-300" aria-hidden />
-                Bugünün ajandası
+                {t('ac.dash.agenda')}
               </h2>
               <span className="text-[9px] capitalize text-slate-400 dark:text-slate-500">
                 {todayLabel}
@@ -315,20 +309,20 @@ export function AcademicianDashboardPage() {
             <div className="flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-800 dark:text-slate-100">
                 <MessageSquare className="h-3.5 w-3.5 text-brand-500 dark:text-brand-300" aria-hidden />
-                Son mesajlar
+                {t('ac.dash.recentMessages')}
               </h2>
               <Link
                 to="/hoca/mesajlar"
                 className="text-[9.5px] font-semibold text-brand-600 transition-colors hover:text-brand-500 dark:text-brand-300"
               >
-                Tümü
+                {t('ac.dash.viewAll')}
               </Link>
             </div>
 
             <div className="mt-2 divide-y divide-slate-200/60 dark:divide-white/[0.06]">
               {recentChats.length === 0 ? (
                 <p className="py-4 text-center text-[10px] text-slate-400 dark:text-slate-500">
-                  Henüz öğrenci mesajı yok.
+                  {t('ac.dash.noMessages')}
                 </p>
               ) : (
                 recentChats.map((chat) => {
@@ -353,11 +347,11 @@ export function AcademicianDashboardPage() {
                           ) : null}
                         </div>
                         <p className="mt-0.5 truncate text-[9.5px] text-slate-400 dark:text-slate-500">
-                          {chat.courseCode} · {last?.text ?? 'Henüz mesaj yok'}
+                          {chat.courseCode} · {last?.text ?? t('ac.dash.noMessagePreview')}
                         </p>
                       </div>
                       {chat.unreadForAcademician > 0 ? (
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" aria-label="Okunmamış mesaj" />
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" aria-label={t('ac.dash.unreadAria')} />
                       ) : null}
                     </Link>
                   );

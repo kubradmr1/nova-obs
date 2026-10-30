@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { MessagingContext } from '@/context/messaging-context';
 import { createSeedChats } from '@/data/messaging';
+import { useAuth } from '@/hooks/useAuth';
+import { SupabaseMessagingProvider } from '@/providers/SupabaseMessagingProvider';
 import type { Chat, MessageSide, StartConversationInput } from '@/types/messaging';
 import { readJson, writeJson } from '@/utils/storage';
 
@@ -37,49 +39,52 @@ function createMessageId(): string {
   return `msg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export function MessagingProvider({ children }: { children: ReactNode }) {
+function DemoMessagingProvider({ children }: { children: ReactNode }) {
   const [chats, setChats] = useState<Chat[]>(readStoredChats);
 
   useEffect(() => {
     writeJson(STORAGE_KEY, chats);
   }, [chats]);
 
-  const sendMessage = useCallback((chatId: string, from: MessageSide, text: string) => {
-    const trimmed = text.trim();
+  const sendMessage = useCallback(
+    async (chatId: string, from: MessageSide, text: string) => {
+      const trimmed = text.trim();
 
-    if (!trimmed) {
-      return;
-    }
+      if (!trimmed) {
+        return;
+      }
 
-    setChats((current) =>
-      current.map((chat) => {
-        if (chat.id !== chatId) {
-          return chat;
-        }
+      setChats((current) =>
+        current.map((chat) => {
+          if (chat.id !== chatId) {
+            return chat;
+          }
 
-        const message = {
-          id: createMessageId(),
-          from,
-          text: trimmed,
-          sentAt: new Date().toISOString(),
-        };
+          const message = {
+            id: createMessageId(),
+            from,
+            text: trimmed,
+            sentAt: new Date().toISOString(),
+          };
 
-        return from === 'student'
-          ? {
-              ...chat,
-              messages: [...chat.messages, message],
-              unreadForStudent: 0,
-              unreadForAcademician: chat.unreadForAcademician + 1,
-            }
-          : {
-              ...chat,
-              messages: [...chat.messages, message],
-              unreadForAcademician: 0,
-              unreadForStudent: chat.unreadForStudent + 1,
-            };
-      }),
-    );
-  }, []);
+          return from === 'student'
+            ? {
+                ...chat,
+                messages: [...chat.messages, message],
+                unreadForStudent: 0,
+                unreadForAcademician: chat.unreadForAcademician + 1,
+              }
+            : {
+                ...chat,
+                messages: [...chat.messages, message],
+                unreadForAcademician: 0,
+                unreadForStudent: chat.unreadForStudent + 1,
+              };
+        }),
+      );
+    },
+    [],
+  );
 
   const markRead = useCallback((chatId: string, viewer: MessageSide) => {
     setChats((current) =>
@@ -112,7 +117,7 @@ export function MessagingProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const startConversation = useCallback(
-    (input: StartConversationInput): string => {
+    async (input: StartConversationInput): Promise<string> => {
       const existing = chats.find(
         (chat) =>
           chat.studentId === input.studentId &&
@@ -139,6 +144,8 @@ export function MessagingProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       chats,
+      isLoading: false,
+      error: null,
       sendMessage,
       markRead,
       markAllReadForAcademician,
@@ -148,4 +155,18 @@ export function MessagingProvider({ children }: { children: ReactNode }) {
   );
 
   return <MessagingContext.Provider value={value}>{children}</MessagingContext.Provider>;
+}
+
+export function MessagingProvider({ children }: { children: ReactNode }) {
+  const { session } = useAuth();
+
+  if (session?.provider === 'supabase' && session.profileId) {
+    return (
+      <SupabaseMessagingProvider key={session.profileId} session={session}>
+        {children}
+      </SupabaseMessagingProvider>
+    );
+  }
+
+  return <DemoMessagingProvider>{children}</DemoMessagingProvider>;
 }

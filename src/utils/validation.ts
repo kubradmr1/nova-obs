@@ -1,25 +1,32 @@
+import { tr, type MessageKey } from '@/i18n/messages';
 import type { LoginCredentials, Role } from '@/types/auth';
 
 export type LoginErrors = Partial<Record<keyof LoginCredentials, string>>;
 
-export function validateLogin(role: Role, values: LoginCredentials): LoginErrors {
+type Translate = (key: MessageKey) => string;
+
+export function validateLogin(
+  role: Role,
+  values: LoginCredentials,
+  t: Translate = (key) => tr[key],
+): LoginErrors {
   const errors: LoginErrors = {};
   const identifier = values.identifier.trim();
 
   if (!identifier) {
-    errors.identifier = 'Bu alan boş bırakılamaz.';
+    errors.identifier = t('validation.required');
   } else if (role === 'student' && !/^\d{4,12}$/.test(identifier)) {
-    errors.identifier = 'Öğrenci numarası 4–12 haneli olmalıdır.';
+    errors.identifier = t('validation.studentNumber');
   } else if (role === 'academic' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) {
-    errors.identifier = 'Geçerli bir kurumsal e-posta adresi gir.';
+    errors.identifier = t('validation.academicEmail');
   } else if (role === 'admin' && identifier.length < 3) {
-    errors.identifier = 'Kullanıcı adı en az 3 karakter olmalıdır.';
+    errors.identifier = t('validation.username');
   }
 
   if (!values.password) {
-    errors.password = 'Şifreni gir.';
+    errors.password = t('validation.passwordRequired');
   } else if (values.password.length < 6) {
-    errors.password = 'Şifre en az 6 karakter olmalıdır.';
+    errors.password = t('validation.passwordLength');
   }
 
   return errors;

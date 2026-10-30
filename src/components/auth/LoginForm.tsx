@@ -18,9 +18,24 @@ import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { getHomePath, getRole } from '@/config/roles';
 import { useAuth } from '@/hooks/useAuth';
+import { useI18n } from '@/hooks/useI18n';
+import type { MessageKey } from '@/i18n/messages';
 import type { LoginCredentials, Role } from '@/types/auth';
+import { resolveErrorMessage } from '@/utils/authErrors';
 import { cx } from '@/utils/cx';
 import { validateLogin, type LoginErrors } from '@/utils/validation';
+
+const IDENTIFIER_KEYS: Record<Role, MessageKey> = {
+  student: 'role.student.identifier',
+  academic: 'role.academic.identifier',
+  admin: 'role.admin.identifier',
+};
+
+const PLACEHOLDER_KEYS: Record<Role, MessageKey> = {
+  student: 'role.student.placeholder',
+  academic: 'role.academic.placeholder',
+  admin: 'role.admin.placeholder',
+};
 
 interface LoginFormProps {
   role: Role;
@@ -29,6 +44,7 @@ interface LoginFormProps {
 export function LoginForm({ role }: LoginFormProps) {
   const definition = getRole(role);
   const { login } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   const [values, setValues] = useState<LoginCredentials>({ identifier: '', password: '' });
@@ -54,13 +70,23 @@ export function LoginForm({ role }: LoginFormProps) {
     setFormError(null);
     setShowPassword(false);
     setRemember(true);
-    setNotice(`${definition.label} için demo bilgileri dolduruldu.`);
+    setNotice(
+      t('login.demoFilled', {
+        role: t(
+          role === 'student'
+            ? 'role.student.label'
+            : role === 'academic'
+              ? 'role.academic.label'
+              : 'role.admin.label',
+        ),
+      }),
+    );
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const nextErrors = validateLogin(role, values);
+    const nextErrors = validateLogin(role, values, t);
     setErrors(nextErrors);
     setNotice(null);
 
@@ -75,9 +101,7 @@ export function LoginForm({ role }: LoginFormProps) {
       await login(role, values, remember);
       navigate(getHomePath(role), { replace: true });
     } catch (error) {
-      setFormError(
-        error instanceof Error ? error.message : 'Giriş yapılamadı, lütfen tekrar dene.',
-      );
+      setFormError(resolveErrorMessage(error, t, 'login.failed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -86,9 +110,9 @@ export function LoginForm({ role }: LoginFormProps) {
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-3.5">
       <TextField
-        label={definition.identifierLabel}
+        label={t(IDENTIFIER_KEYS[role])}
         icon={IdentifierIcon}
-        placeholder={definition.identifierPlaceholder}
+        placeholder={t(PLACEHOLDER_KEYS[role])}
         autoComplete={role === 'academic' ? 'email' : 'username'}
         inputMode={role === 'student' ? 'numeric' : 'text'}
         maxLength={120}
@@ -98,7 +122,7 @@ export function LoginForm({ role }: LoginFormProps) {
       />
 
       <TextField
-        label="Şifre"
+        label={t('login.password')}
         icon={KeyRound}
         type={showPassword ? 'text' : 'password'}
         placeholder="••••••••"
@@ -110,8 +134,8 @@ export function LoginForm({ role }: LoginFormProps) {
           <button
             type="button"
             onClick={() => setShowPassword((current) => !current)}
-            aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
-            title={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
+            aria-label={t(showPassword ? 'login.hidePassword' : 'login.showPassword')}
+            title={t(showPassword ? 'login.hidePassword' : 'login.showPassword')}
             className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
           >
             {showPassword ? (
@@ -141,19 +165,15 @@ export function LoginForm({ role }: LoginFormProps) {
           >
             {remember ? <Check className="h-3 w-3" strokeWidth={3} aria-hidden /> : null}
           </span>
-          Beni hatırla
+          {t('login.remember')}
         </label>
 
         <button
           type="button"
-          onClick={() =>
-            setNotice(
-              'Şifre sıfırlama bağlantısı demo sürümünde gönderilmiyor. Demo bilgilerini doldurarak giriş yapabilirsin.',
-            )
-          }
+          onClick={() => setNotice(t('login.forgotNotice'))}
           className="rounded-md text-[12px] font-semibold text-brand-600 transition-colors hover:text-brand-500 dark:text-brand-300 dark:hover:text-brand-200"
         >
-          Şifremi unuttum
+          {t('login.forgot')}
         </button>
       </div>
 
@@ -180,10 +200,10 @@ export function LoginForm({ role }: LoginFormProps) {
       <Button
         type="submit"
         isLoading={isSubmitting}
-        loadingLabel="Giriş yapılıyor…"
+        loadingLabel={t('login.submitting')}
         className="w-full"
       >
-        Giriş Yap
+        {t('login.submit')}
         <ArrowRight
           className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
           aria-hidden
@@ -193,7 +213,7 @@ export function LoginForm({ role }: LoginFormProps) {
       <div className="flex items-center gap-3 py-0.5">
         <span className="h-px flex-1 bg-slate-200/90 dark:bg-white/10" />
         <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-          veya
+          {t('login.or')}
         </span>
         <span className="h-px flex-1 bg-slate-200/90 dark:bg-white/10" />
       </div>
@@ -202,14 +222,10 @@ export function LoginForm({ role }: LoginFormProps) {
         type="button"
         variant="secondary"
         className="w-full"
-        onClick={() =>
-          setNotice(
-            'e-Devlet entegrasyonu demo sürümünde devre dışıdır. Demo bilgilerini doldurarak devam edebilirsin.',
-          )
-        }
+        onClick={() => setNotice(t('login.edevletNotice'))}
       >
         <Landmark className="h-4 w-4" aria-hidden />
-        e-Devlet ile Giriş
+        {t('login.edevlet')}
       </Button>
 
       <button
@@ -218,7 +234,7 @@ export function LoginForm({ role }: LoginFormProps) {
         className="mx-auto flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-500 transition-colors hover:text-brand-600 dark:text-slate-400 dark:hover:text-brand-300"
       >
         <Sparkles className="h-3.5 w-3.5" aria-hidden />
-        Demo bilgilerini doldur
+        {t('login.demoFill')}
       </button>
     </form>
   );

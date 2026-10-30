@@ -6,6 +6,7 @@ import {
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from 'react';
+import { useI18n } from '@/hooks/useI18n';
 import { cx } from '@/utils/cx';
 
 const CONTROL_CLASSES =
@@ -92,9 +93,14 @@ export function InputField({
   );
 }
 
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
 interface SelectFieldProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'id' | 'children'> {
   label: string;
-  options: readonly string[];
+  options: readonly (string | SelectOption)[];
   placeholder?: string;
   error?: string;
   hint?: string;
@@ -104,7 +110,7 @@ interface SelectFieldProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>,
 export function SelectField({
   label,
   options,
-  placeholder = 'Seçiniz',
+  placeholder,
   error,
   hint,
   fieldClassName,
@@ -113,6 +119,8 @@ export function SelectField({
   ...selectProps
 }: SelectFieldProps) {
   const id = useId();
+  const { t } = useI18n();
+  const resolvedPlaceholder = placeholder ?? t('common.select');
   const errorId = `${id}-error`;
   const hintId = `${id}-hint`;
 
@@ -140,13 +148,18 @@ export function SelectField({
           {...selectProps}
         >
           <option value="" disabled>
-            {placeholder}
+            {resolvedPlaceholder}
           </option>
-          {options.map((option) => (
-            <option key={option} value={option} className="text-slate-900 dark:text-white">
-              {option}
-            </option>
-          ))}
+          {options.map((option) => {
+            const value = typeof option === 'string' ? option : option.value;
+            const label = typeof option === 'string' ? option : option.label;
+
+            return (
+              <option key={value} value={value} className="text-slate-900 dark:text-white">
+                {label}
+              </option>
+            );
+          })}
         </select>
         <ChevronDown
           className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500"

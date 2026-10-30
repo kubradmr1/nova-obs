@@ -27,47 +27,43 @@ import {
   STUDENTS_STORAGE_KEY,
 } from '@/data/admin';
 import { useAuth } from '@/hooks/useAuth';
+import { useI18n } from '@/hooks/useI18n';
 import { readCollection } from '@/utils/storage';
 
 const QUICK_ACTIONS = [
   {
     to: '/yonetim/ogrenci-kaydi',
-    title: 'Öğrenci Kaydı',
-    description: 'Yeni öğrenci ekle, sınıf ve bölüm ata.',
+    titleKey: 'nav.admin.studentRegistration',
+    descriptionKey: 'ad.quick.studentDesc',
     icon: UserPlus,
     tile: 'bg-brand-500/10 text-brand-600 dark:text-brand-300',
   },
   {
     to: '/yonetim/akademisyen-kaydi',
-    title: 'Akademisyen Kaydı',
-    description: 'Yeni akademik kadro oluştur.',
+    titleKey: 'nav.admin.academicianRegistration',
+    descriptionKey: 'ad.quick.academicianDesc',
     icon: UserCheck,
     tile: 'bg-sky-500/10 text-sky-600 dark:text-sky-300',
   },
   {
     to: '/yonetim/ders-tanimlama',
-    title: 'Ders Tanımlama',
-    description: 'Müfredata yeni ders ekle, hoca ata.',
+    titleKey: 'nav.admin.courseDefinition',
+    descriptionKey: 'ad.quick.courseDesc',
     icon: BookPlus,
     tile: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
   },
   {
     to: '/yonetim/duyurular',
-    title: 'Duyuru Yayınla',
-    description: 'Okul genelinde duyuru yayınla.',
+    titleKey: 'ad.quick.announcementTitle',
+    descriptionKey: 'ad.quick.announcementDesc',
     icon: Megaphone,
     tile: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
   },
 ] as const;
 
-const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-});
-
 export function AdminDashboardPage() {
   const { session } = useAuth();
+  const { t, formatDate } = useI18n();
 
   const { students, academicians, courses, announcements } = useMemo(
     () => ({
@@ -85,65 +81,71 @@ export function AdminDashboardPage() {
         key: `student-${student.id}`,
         name: `${student.firstName} ${student.lastName}`,
         line: `${student.studentNumber} · ${student.department}`,
-        tag: 'Öğrenci',
+        tag: t('ad.tag.student'),
         tagClass:
           'bg-brand-500/10 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300',
       })),
       ...academicians.slice(0, 2).map((academician) => ({
         key: `academician-${academician.id}`,
         name: `${academician.title} ${academician.firstName} ${academician.lastName}`,
-        line: `${academician.department} · Ofis ${academician.office}`,
-        tag: 'Akademisyen',
+        line: `${academician.department} · ${t('ad.office.withNumber', {
+          office: academician.office,
+        })}`,
+        tag: t('ad.tag.academician'),
         tagClass:
           'bg-sky-500/10 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300',
       })),
     ],
-    [students, academicians],
+    [students, academicians, t],
   );
 
   return (
     <div className="space-y-4">
       <PageHeader
-        eyebrow="Yönetim Paneli"
-        title={`Merhaba, ${session?.name ?? 'Sistem Yöneticisi'}`}
-        description="Öğrenci ve akademisyen kayıtlarını yönet, ders tanımla ve okul genelindeki duyuruları tek panelden yayınla."
+        eyebrow={t('panel.portal.admin')}
+        title={t('ad.dash.greeting', {
+          name: session?.name ?? t('ad.systemAdmin'),
+        })}
+        description={t('ad.dash.description')}
         actions={
           <Link
             to="/yonetim/duyurular"
             className="inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(110deg,#7c5cff_0%,#5f6bff_48%,#a855f7_100%)] px-4 py-2.5 text-[12px] font-semibold text-white shadow-[0_16px_34px_-18px_rgba(124,92,255,0.9)] transition-transform duration-200 hover:-translate-y-0.5"
           >
             <Megaphone className="h-3.5 w-3.5" aria-hidden />
-            Duyuru yayınla
+            {t('ad.dash.publishAction')}
           </Link>
         }
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Kayıtlı Öğrenci"
+          label={t('ad.dash.stat.students')}
           value={String(students.length)}
-          hint="Sistemde aktif öğrenci kaydı"
+          hint={t('ad.dash.stat.studentsHint')}
           icon={Users}
           tone="brand"
         />
         <StatCard
-          label="Akademisyen"
+          label={t('ad.dash.stat.academicians')}
           value={String(academicians.length)}
-          hint="Aktif akademik kadro"
+          hint={t('ad.dash.stat.academiciansHint')}
           icon={UserCheck}
           tone="sky"
         />
         <StatCard
-          label="Tanımlı Ders"
+          label={t('ad.dash.stat.courses')}
           value={String(courses.length)}
-          hint="2026–2027 Güz dönemi"
+          hint={t('ad.dash.stat.coursesHint', { term: t('common.term') })}
           icon={BookOpen}
           tone="emerald"
         />
         <StatCard
-          label="Yayında Duyuru"
+          label={t('ad.dash.stat.announcements')}
           value={String(announcements.length)}
-          hint={`${announcements.filter((item) => item.pinned).length} sabitlenmiş duyuru`}
+          hint={t('ad.dash.stat.announcementsHint', {
+            count: announcements.filter((item) => item.pinned).length,
+          })}
           icon={Megaphone}
           tone="amber"
         />
@@ -153,7 +155,7 @@ export function AdminDashboardPage() {
         <div className="min-w-0 space-y-3">
           <div>
             <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-              Hızlı işlemler
+              {t('ad.dash.quickTitle')}
             </h2>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {QUICK_ACTIONS.map((action) => {
@@ -170,10 +172,10 @@ export function AdminDashboardPage() {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-[11.5px] font-semibold text-slate-800 dark:text-slate-100">
-                        {action.title}
+                        {t(action.titleKey)}
                       </span>
                       <span className="mt-0.5 block text-[9.5px] leading-relaxed text-slate-400 dark:text-slate-500">
-                        {action.description}
+                        {t(action.descriptionKey)}
                       </span>
                     </span>
                     <ArrowRight
@@ -189,14 +191,14 @@ export function AdminDashboardPage() {
           <Card className="p-4">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">
-                Son kayıtlar
+                {t('ad.list.recent')}
               </h2>
               <div className="flex items-center gap-2 text-[9px] font-semibold">
                 <Link
                   to="/yonetim/ogrenci-kaydi"
                   className="text-brand-600 transition-colors hover:text-brand-500 dark:text-brand-300"
                 >
-                  Öğrenci ekle
+                  {t('ad.act.addStudent')}
                 </Link>
                 <span className="text-slate-300 dark:text-slate-600" aria-hidden>
                   ·
@@ -205,7 +207,7 @@ export function AdminDashboardPage() {
                   to="/yonetim/akademisyen-kaydi"
                   className="text-brand-600 transition-colors hover:text-brand-500 dark:text-brand-300"
                 >
-                  Akademisyen ekle
+                  {t('ad.act.addAcademician')}
                 </Link>
               </div>
             </div>
@@ -236,13 +238,13 @@ export function AdminDashboardPage() {
             <div className="flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-800 dark:text-slate-100">
                 <Megaphone className="h-3.5 w-3.5 text-brand-500 dark:text-brand-300" aria-hidden />
-                Son duyurular
+                {t('ad.dash.latestAnnouncements')}
               </h2>
               <Link
                 to="/yonetim/duyurular"
                 className="text-[9.5px] font-semibold text-brand-600 transition-colors hover:text-brand-500 dark:text-brand-300"
               >
-                Tümü
+                {t('ad.all')}
               </Link>
             </div>
 
@@ -255,11 +257,15 @@ export function AdminDashboardPage() {
                     {announcement.pinned ? (
                       <Pin
                         className="h-3 w-3 text-amber-500 dark:text-amber-300"
-                        aria-label="Sabitlenmiş duyuru"
+                        aria-label={t('ad.dash.pinnedAria')}
                       />
                     ) : null}
                     <span className="ml-auto text-[8px] text-slate-400 dark:text-slate-500">
-                      {dateFormatter.format(new Date(announcement.createdAt))}
+                      {formatDate(new Date(announcement.createdAt), {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
                     </span>
                   </div>
                   <p className="mt-1 line-clamp-1 text-[10.5px] font-semibold text-slate-800 dark:text-slate-100">
@@ -276,26 +282,38 @@ export function AdminDashboardPage() {
           <Card className="p-4">
             <h2 className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-800 dark:text-slate-100">
               <CalendarDays className="h-3.5 w-3.5 text-brand-500 dark:text-brand-300" aria-hidden />
-              Dönem özeti
+              {t('ad.dash.termSummary')}
             </h2>
             <dl className="mt-2.5 space-y-2 text-[10px]">
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-slate-400 dark:text-slate-500">Aktif dönem</dt>
-                <dd className="font-semibold text-slate-700 dark:text-slate-200">2026–2027 Güz</dd>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-slate-400 dark:text-slate-500">Ders kayıtları</dt>
-                <dd className="inline-flex items-center gap-1.5 font-semibold text-emerald-600 dark:text-emerald-300">
-                  <span className="h-1 w-1 rounded-full bg-emerald-500" />
-                  Açık
+                <dt className="text-slate-400 dark:text-slate-500">
+                  {t('ad.dash.activeTerm')}
+                </dt>
+                <dd className="font-semibold text-slate-700 dark:text-slate-200">
+                  {t('common.term')}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-slate-400 dark:text-slate-500">Vize haftası</dt>
-                <dd className="font-semibold text-slate-700 dark:text-slate-200">18–29 Kasım</dd>
+                <dt className="text-slate-400 dark:text-slate-500">
+                  {t('ad.dash.courseRegistrations')}
+                </dt>
+                <dd className="inline-flex items-center gap-1.5 font-semibold text-emerald-600 dark:text-emerald-300">
+                  <span className="h-1 w-1 rounded-full bg-emerald-500" />
+                  {t('ad.dash.statusOpen')}
+                </dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-slate-400 dark:text-slate-500">Sabitlenen duyuru</dt>
+                <dt className="text-slate-400 dark:text-slate-500">
+                  {t('ad.dash.midtermWeek')}
+                </dt>
+                <dd className="font-semibold text-slate-700 dark:text-slate-200">
+                  {t('ad.dash.midtermWeekValue')}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-slate-400 dark:text-slate-500">
+                  {t('ad.dash.pinnedAria')}
+                </dt>
                 <dd className="font-semibold text-slate-700 dark:text-slate-200">
                   {announcements.filter((item) => item.pinned).length}
                 </dd>

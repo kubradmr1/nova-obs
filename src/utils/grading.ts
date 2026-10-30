@@ -1,3 +1,4 @@
+import { LOCALE_STORAGE_KEY } from '@/context/i18n-context';
 import type {
   AttendanceStatus,
   CourseRecord,
@@ -21,22 +22,34 @@ export const LETTER_SCALE: LetterScaleEntry[] = [
   { letter: 'FF', min: 0, points: 0 },
 ];
 
-const gpaFormatter = new Intl.NumberFormat('tr-TR', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+const numberFormats = new Map<string, { gpa: Intl.NumberFormat; grade: Intl.NumberFormat }>();
 
-const gradeFormatter = new Intl.NumberFormat('tr-TR', {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
+function formats() {
+  const locale =
+    typeof window !== 'undefined' && window.localStorage.getItem(LOCALE_STORAGE_KEY) === 'en'
+      ? 'en-US'
+      : 'tr-TR';
+  const cached = numberFormats.get(locale);
+
+  if (cached) {
+    return cached;
+  }
+
+  const created = {
+    gpa: new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    grade: new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+  };
+  numberFormats.set(locale, created);
+
+  return created;
+}
 
 export function formatGpa(value: number): string {
-  return gpaFormatter.format(value);
+  return formats().gpa.format(value);
 }
 
 export function formatGrade(value: number): string {
-  return gradeFormatter.format(value);
+  return formats().grade.format(value);
 }
 
 export function computeAverage(midterm: number, final: number): number {

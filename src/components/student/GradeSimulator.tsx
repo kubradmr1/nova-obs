@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, ChevronDown, RotateCcw, Target } from 'lucide-react';
 import { useState } from 'react';
 import { COURSES } from '@/data/student';
+import { useI18n } from '@/hooks/useI18n';
 import type { LetterGrade } from '@/types/student';
 import { cx } from '@/utils/cx';
 import {
@@ -33,6 +34,8 @@ interface ScoreControlProps {
 }
 
 function ScoreControl({ id, label, weight, value, onChange }: ScoreControlProps) {
+  const { t } = useI18n();
+
   return (
     <div className="rounded-2xl border border-slate-200/80 bg-white/70 p-3.5 dark:border-white/10 dark:bg-white/[0.04]">
       <div className="flex items-center justify-between gap-2">
@@ -63,7 +66,7 @@ function ScoreControl({ id, label, weight, value, onChange }: ScoreControlProps)
           max={100}
           step={1}
           value={value}
-          aria-label={`${label} kaydırıcısı`}
+          aria-label={t('se.gradeSim.sliderAria', { label })}
           onChange={(event) => onChange(Number(event.target.value))}
           className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-brand-500 dark:bg-white/10"
         />
@@ -73,6 +76,7 @@ function ScoreControl({ id, label, weight, value, onChange }: ScoreControlProps)
 }
 
 export function GradeSimulator() {
+  const { t } = useI18n();
   const [courseCode, setCourseCode] = useState(COURSES[0].code);
   const course = COURSES.find((item) => item.code === courseCode) ?? COURSES[0];
   const [midterm, setMidterm] = useState(course.midterm);
@@ -106,10 +110,10 @@ export function GradeSimulator() {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-white/[0.06] sm:px-6">
         <div>
           <h3 className="font-display text-[15px] font-semibold text-slate-900 dark:text-white">
-            Finalden kaç alırsam geçerim?
+            {t('se.gradeSim.title')}
           </h3>
           <p className="mt-0.5 text-[10.5px] text-slate-400 dark:text-slate-500">
-            Vize %40 · Final %60 ağırlığıyla ders seçerek canlı hesapla
+            {t('se.gradeSim.subtitle')}
           </p>
         </div>
         <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[9.5px] font-semibold text-emerald-600 dark:text-emerald-300">
@@ -117,7 +121,7 @@ export function GradeSimulator() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
           </span>
-          Canlı hesaplama
+          {t('se.sim.live')}
         </span>
       </div>
 
@@ -128,7 +132,7 @@ export function GradeSimulator() {
               htmlFor="simulator-course"
               className="mb-1.5 block text-[9.5px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400"
             >
-              Ders
+              {t('common.course')}
             </label>
             <div className="relative">
               <select
@@ -153,14 +157,14 @@ export function GradeSimulator() {
           <div className="grid gap-2.5 sm:grid-cols-2">
             <ScoreControl
               id="simulator-midterm"
-              label="Vize notu"
+              label={t('se.gradeSim.midterm')}
               weight="%40"
               value={midterm}
               onChange={setMidterm}
             />
             <ScoreControl
               id="simulator-final"
-              label="Final notu"
+              label={t('se.gradeSim.final')}
               weight="%60"
               value={finalScore}
               onChange={setFinalScore}
@@ -170,7 +174,7 @@ export function GradeSimulator() {
           <div>
             <p className="mb-1.5 flex items-center gap-1.5 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
               <Target className="h-3 w-3 text-brand-500 dark:text-brand-300" aria-hidden />
-              Hedef harf notu
+              {t('se.gradeSim.targetLetter')}
             </p>
             <div className="grid grid-cols-7 gap-1">
               {TARGET_LETTERS.map((letter) => {
@@ -181,8 +185,14 @@ export function GradeSimulator() {
                     type="button"
                     onClick={() => setTarget(letter)}
                     aria-pressed={isActive}
-                    aria-label={`Hedef ${letter} (en az ${letterMinimum(letter)} ortalama)`}
-                    title={`${letter} · en az ${letterMinimum(letter)} ortalama`}
+                    aria-label={t('se.gradeSim.targetAria', {
+                      letter,
+                      min: letterMinimum(letter),
+                    })}
+                    title={t('se.gradeSim.targetTitle', {
+                      letter,
+                      min: letterMinimum(letter),
+                    })}
                     className={cx(
                       'flex items-center justify-center rounded-xl border py-2 text-[11.5px] font-bold tracking-[0.04em] transition-all duration-200',
                       isActive
@@ -199,7 +209,7 @@ export function GradeSimulator() {
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
             <p className="text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
-              Canlı senaryo: final notunu kaydırarak ortalamanı gör.
+              {t('se.gradeSim.liveHint')}
             </p>
             <button
               type="button"
@@ -207,7 +217,7 @@ export function GradeSimulator() {
               className="inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-[10px] font-semibold text-slate-400 transition-colors hover:text-brand-600 dark:text-slate-500 dark:hover:text-brand-300"
             >
               <RotateCcw className="h-3 w-3" aria-hidden />
-              Mevcut notlara dön
+              {t('se.gradeSim.reset')}
             </button>
           </div>
         </div>
@@ -221,7 +231,7 @@ export function GradeSimulator() {
 
           <div className="relative">
             <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-white/55">
-              {target} hedefine ulaşmak için finalden en az
+              {t('se.gradeSim.neededLabel', { target })}
             </p>
             <div
               className="mt-1.5 flex items-end gap-2"
@@ -238,7 +248,9 @@ export function GradeSimulator() {
               <span className="inline-flex min-w-[38px] items-center justify-center rounded-lg border border-white/25 bg-white/15 px-2 py-0.5 text-[10.5px] font-bold tracking-[0.04em] text-white">
                 {target}
               </span>
-              <span className="text-[10px] text-white/55">hedefi · en az {targetMin} ortalama</span>
+              <span className="text-[10px] text-white/55">
+                {t('se.gradeSim.targetSummary', { min: targetMin })}
+              </span>
             </div>
 
             <div className="mt-5">
@@ -262,27 +274,29 @@ export function GradeSimulator() {
               <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-300/30 bg-amber-400/15 px-3 py-2.5 text-[10.5px] leading-relaxed text-amber-100">
                 <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
                 <span>
-                  Finalde en fazla 100 alınabildiği için bu hedefe ulaşılamıyor. Bu vizeyle
-                  erişebileceğin en yüksek harf notu{' '}
+                  {t('se.gradeSim.impossibleBefore')}{' '}
                   <strong className="font-semibold text-white">{maxLetter}</strong>.
                 </span>
               </div>
             ) : (
               <p className="mt-4 flex items-start gap-2 text-[10.5px] leading-relaxed text-white/60">
                 <CheckCircle2 className="mt-px h-3.5 w-3.5 shrink-0 text-emerald-300" aria-hidden />
-                Finalde <strong className="font-semibold text-white">{needed}</strong> ve üzeri
-                aldığında {target} harf notunu yakalıyorsun.
+                {t('se.gradeSim.successBefore')}{' '}
+                <strong className="font-semibold text-white">{needed}</strong>{' '}
+                {t('se.gradeSim.successAfter', { target })}
               </p>
             )}
 
             <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-white/15 bg-black/20 px-3.5 py-3 backdrop-blur">
               <div>
                 <p className="text-[8.5px] font-semibold uppercase tracking-[0.16em] text-white/45">
-                  Bu senaryoda
+                  {t('se.gradeSim.inScenario')}
                 </p>
                 <p className="mt-1 flex items-baseline gap-1.5 text-[16px] font-semibold">
                   {formatGrade(average)}
-                  <span className="text-[9.5px] font-normal text-white/45">ortalama</span>
+                  <span className="text-[9.5px] font-normal text-white/45">
+                    {t('se.gradeSim.average')}
+                  </span>
                 </p>
               </div>
               <div className="text-right">
@@ -302,7 +316,7 @@ export function GradeSimulator() {
                     scenarioPassed ? 'text-emerald-300' : 'text-rose-300',
                   )}
                 >
-                  {scenarioPassed ? 'Geçer' : 'Kalır'}
+                  {scenarioPassed ? t('se.gradeSim.pass') : t('se.gradeSim.fail')}
                 </p>
               </div>
             </div>

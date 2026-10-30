@@ -10,6 +10,7 @@ import {
   Phone,
   ShieldCheck,
   UserCog,
+  type LucideIcon,
 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
@@ -22,6 +23,9 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { findAcademicianByName } from '@/data/academicians';
 import { STUDENT } from '@/data/student';
 import { useAuth } from '@/hooks/useAuth';
+import { useI18n } from '@/hooks/useI18n';
+import { localizeClassYear, localizeTerm } from '@/utils/localeData';
+import type { MessageKey } from '@/i18n/messages';
 import { formatGpa } from '@/utils/grading';
 
 interface PasswordErrors {
@@ -30,16 +34,17 @@ interface PasswordErrors {
   repeatPassword?: string;
 }
 
-const PROFILE_FIELDS = [
-  { label: 'E-posta', value: STUDENT.email, icon: Mail },
-  { label: 'Telefon', value: STUDENT.phone, icon: Phone },
-  { label: 'Fakülte', value: STUDENT.faculty, icon: GraduationCap },
-  { label: 'Bölüm', value: STUDENT.department, icon: CloudCog },
-  { label: 'Program', value: STUDENT.program, icon: CloudCog },
-  { label: 'Kayıt yılı', value: STUDENT.enrolledAt, icon: CalendarDays },
+const PROFILE_FIELDS: { labelKey: MessageKey; value: string; icon: LucideIcon }[] = [
+  { labelKey: 'se.account.email', value: STUDENT.email, icon: Mail },
+  { labelKey: 'se.account.phone', value: STUDENT.phone, icon: Phone },
+  { labelKey: 'se.account.faculty', value: STUDENT.faculty, icon: GraduationCap },
+  { labelKey: 'se.account.department', value: STUDENT.department, icon: CloudCog },
+  { labelKey: 'se.account.program', value: STUDENT.program, icon: CloudCog },
+  { labelKey: 'se.account.enrolledAt', value: STUDENT.enrolledAt, icon: CalendarDays },
 ];
 
 export function AccountPage() {
+  const { t, locale } = useI18n();
   const { session } = useAuth();
   const advisor = findAcademicianByName(STUDENT.advisor);
 
@@ -65,17 +70,17 @@ export function AccountPage() {
     const nextErrors: PasswordErrors = {};
 
     if (currentPassword.length < 6) {
-      nextErrors.currentPassword = 'Mevcut şifreni gir (en az 6 karakter).';
+      nextErrors.currentPassword = t('se.account.errors.current');
     }
 
     if (newPassword.length < 6) {
-      nextErrors.newPassword = 'Yeni şifre en az 6 karakter olmalı.';
+      nextErrors.newPassword = t('se.account.errors.newLength');
     } else if (newPassword === currentPassword) {
-      nextErrors.newPassword = 'Yeni şifre mevcut şifrenden farklı olmalı.';
+      nextErrors.newPassword = t('se.account.errors.newSame');
     }
 
     if (repeatPassword !== newPassword || repeatPassword.length === 0) {
-      nextErrors.repeatPassword = 'Yeni şifre ile tekrarı eşleşmiyor.';
+      nextErrors.repeatPassword = t('se.account.errors.repeat');
     }
 
     setErrors(nextErrors);
@@ -85,31 +90,29 @@ export function AccountPage() {
       return;
     }
 
-    setNotice(
-      'Şifre değişikliği talebin alındı. Demo ortamında şifreler saklanmadığı için oturumun aynı kalıyor.',
-    );
+    setNotice(t('se.account.passwordNotice'));
     resetForm();
   };
 
   return (
     <div className="animate-rise space-y-4">
       <PageHeader
-        eyebrow="Kullanıcı İşlemleri"
-        title="Profil & Güvenlik"
-        description="Kayıt bilgilerini, danışmanını ve oturum güvenliği ayarlarını tek ekrandan yönet."
+        eyebrow={t('nav.groups.user')}
+        title={t('nav.student.account')}
+        description={t('se.account.description')}
         actions={
           <Link
             to="/panel/mesajlar"
             className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200/90 bg-white/70 px-3.5 py-2 text-[11px] font-semibold text-slate-700 shadow-sm backdrop-blur transition-colors hover:border-brand-300 hover:text-brand-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-200 dark:hover:border-white/25 dark:hover:text-white"
           >
-            Danışmana yaz
+            {t('se.account.messageAdvisor')}
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
           </Link>
         }
       />
 
       {notice ? (
-        <Notice tone="success" title="Güvenlik güncellemesi">
+        <Notice tone="success" title={t('se.account.noticeTitle')}>
           {notice}
         </Notice>
       ) : null}
@@ -130,11 +133,12 @@ export function AccountPage() {
                   </h2>
                   <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">
                     <BadgeCheck className="h-2.5 w-2.5" aria-hidden />
-                    Aktif
+                    {t('se.account.active')}
                   </span>
                 </div>
                 <p className="mt-0.5 text-[10.5px] text-slate-500 dark:text-slate-400">
-                  {identifier} · {STUDENT.classYear} · {STUDENT.term}
+                  {identifier} · {localizeClassYear(STUDENT.classYear, locale)} ·{' '}
+                  {localizeTerm(STUDENT.term, locale)}
                 </p>
                 <p className="mt-1 inline-flex items-center gap-1 rounded-lg bg-white/70 px-1.5 py-0.5 text-[9px] font-semibold text-brand-700 backdrop-blur dark:bg-white/[0.08] dark:text-brand-200">
                   <CloudCog className="h-3 w-3" aria-hidden />
@@ -144,7 +148,7 @@ export function AccountPage() {
               <div className="flex gap-2">
                 <div className="rounded-xl border border-white/70 bg-white/60 px-2.5 py-1.5 text-center backdrop-blur dark:border-white/10 dark:bg-white/[0.06]">
                   <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
-                    GANO
+                    {t('se.account.gpa')}
                   </p>
                   <p className="text-[13px] font-bold text-slate-800 dark:text-white">
                     {formatGpa(STUDENT.cumulativeGpa)}
@@ -152,7 +156,7 @@ export function AccountPage() {
                 </div>
                 <div className="rounded-xl border border-white/70 bg-white/60 px-2.5 py-1.5 text-center backdrop-blur dark:border-white/10 dark:bg-white/[0.06]">
                   <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
-                    AKTS
+                    {t('se.registration.ects')}
                   </p>
                   <p className="text-[13px] font-bold text-slate-800 dark:text-white">
                     {STUDENT.completedEcts}/{STUDENT.totalEcts}
@@ -167,13 +171,13 @@ export function AccountPage() {
               const Icon = field.icon;
 
               return (
-                <div key={field.label} className="flex items-start gap-2">
+                <div key={field.labelKey} className="flex items-start gap-2">
                   <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-500/8 text-slate-500 dark:bg-white/[0.06] dark:text-slate-300">
                     <Icon className="h-3.5 w-3.5" aria-hidden />
                   </span>
                   <div className="min-w-0">
                     <dt className="text-[8.5px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-                      {field.label}
+                      {t(field.labelKey)}
                     </dt>
                     <dd className="mt-0.5 break-words text-[11px] font-medium leading-snug text-slate-700 dark:text-slate-200">
                       {field.value}
@@ -188,13 +192,14 @@ export function AccountPage() {
             <Avatar name={STUDENT.advisor} size="sm" />
             <div className="min-w-0 flex-1">
               <p className="text-[8.5px] font-bold uppercase tracking-[0.14em] text-brand-600 dark:text-brand-300">
-                Danışman Akademisyen
+                {t('sidebar.advisor')}
               </p>
               <p className="text-[11.5px] font-semibold text-slate-800 dark:text-slate-100">
                 {STUDENT.advisor}
               </p>
               <p className="mt-0.5 text-[9.5px] text-slate-400 dark:text-slate-500">
-                {advisor?.department ?? STUDENT.department} · Ofis {advisor?.office ?? 'V-204'} ·{' '}
+                {advisor?.department ?? STUDENT.department} ·{' '}
+                {t('se.registration.office', { office: advisor?.office ?? 'V-204' })} ·{' '}
                 {advisor?.officeHours ?? 'Salı 14.00 – 16.00'}
               </p>
             </div>
@@ -209,17 +214,17 @@ export function AccountPage() {
               </span>
               <div>
                 <h2 className="font-display text-[15px] font-bold text-slate-900 dark:text-white">
-                  Şifre değiştir
+                  {t('se.account.changePassword')}
                 </h2>
                 <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                  Güçlü bir şifre için en az 6 karakter, bir harf ve bir rakam kullan.
+                  {t('se.account.passwordHint')}
                 </p>
               </div>
             </div>
 
             <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-3">
               <InputField
-                label="Mevcut şifre"
+                label={t('se.account.currentPassword')}
                 type="password"
                 autoComplete="current-password"
                 placeholder="••••••••"
@@ -232,7 +237,7 @@ export function AccountPage() {
                 }}
               />
               <InputField
-                label="Yeni şifre"
+                label={t('se.account.newPassword')}
                 type="password"
                 autoComplete="new-password"
                 placeholder="••••••••"
@@ -245,7 +250,7 @@ export function AccountPage() {
                 }}
               />
               <InputField
-                label="Yeni şifre (tekrar)"
+                label={t('se.account.repeatPassword')}
                 type="password"
                 autoComplete="new-password"
                 placeholder="••••••••"
@@ -261,7 +266,7 @@ export function AccountPage() {
               <div className="flex flex-wrap gap-2 border-t border-slate-200/70 pt-3.5 dark:border-white/[0.07]">
                 <Button type="submit" className="px-4 py-2.5 text-[12px]">
                   <LockKeyhole className="h-4 w-4" aria-hidden />
-                  Şifreyi Güncelle
+                  {t('se.account.updatePassword')}
                 </Button>
                 <Button
                   type="button"
@@ -272,7 +277,7 @@ export function AccountPage() {
                     setNotice(null);
                   }}
                 >
-                  Temizle
+                  {t('se.account.clear')}
                 </Button>
               </div>
             </form>
@@ -282,10 +287,10 @@ export function AccountPage() {
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h2 className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">
-                  Oturum güvenliği
+                  {t('se.account.sessionTitle')}
                 </h2>
                 <p className="mt-0.5 text-[9.5px] text-slate-400 dark:text-slate-500">
-                  Hesabına bağlı güvenlik önlemleri
+                  {t('se.account.sessionHint')}
                 </p>
               </div>
               <ShieldCheck className="h-5 w-5 text-emerald-500 dark:text-emerald-300" aria-hidden />
@@ -293,10 +298,22 @@ export function AccountPage() {
 
             <ul className="mt-3 space-y-2">
               {[
-                { label: 'İki adımlı doğrulama', value: 'Demo modunda kapalı' },
-                { label: 'Son giriş', value: 'Bu oturum · Chrome · Windows' },
-                { label: 'Kayıtlı cihaz', value: '1 cihaz' },
-                { label: 'KVKK aydınlatma metni', value: 'Onaylandı' },
+                {
+                  label: t('se.account.twoFactor'),
+                  value: t('se.account.twoFactorValue'),
+                },
+                {
+                  label: t('se.account.lastLogin'),
+                  value: t('se.account.lastLoginValue'),
+                },
+                {
+                  label: t('se.account.devices'),
+                  value: t('se.account.devicesValue'),
+                },
+                {
+                  label: t('se.account.kvkk'),
+                  value: t('se.account.kvkkValue'),
+                },
               ].map((row) => (
                 <li
                   key={row.label}
@@ -312,8 +329,7 @@ export function AccountPage() {
 
             <p className="mt-3 flex items-start gap-1.5 text-[9px] leading-relaxed text-slate-400 dark:text-slate-500">
               <UserCog className="mt-px h-3 w-3 shrink-0" aria-hidden />
-              Profil bilgileri öğrenci işleri tarafından güncellenir. Değişiklik için Formlar &amp;
-              Belgeler ekranından dilekçe oluşturabilirsin.
+              {t('se.account.profileNote')}
             </p>
           </Card>
         </div>

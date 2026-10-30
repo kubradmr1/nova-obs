@@ -1,7 +1,21 @@
 import { useRef, type KeyboardEvent } from 'react';
 import { ROLES } from '@/config/roles';
+import { useI18n } from '@/hooks/useI18n';
+import type { MessageKey } from '@/i18n/messages';
 import type { Role } from '@/types/auth';
 import { cx } from '@/utils/cx';
+
+const TAB_KEYS: Record<Role, MessageKey> = {
+  student: 'role.student.tab',
+  academic: 'role.academic.tab',
+  admin: 'role.admin.tab',
+};
+
+const LABEL_KEYS: Record<Role, MessageKey> = {
+  student: 'role.student.label',
+  academic: 'role.academic.label',
+  admin: 'role.admin.label',
+};
 
 interface RoleTabsProps {
   activeRole: Role;
@@ -9,6 +23,7 @@ interface RoleTabsProps {
 }
 
 export function RoleTabs({ activeRole, onChange }: RoleTabsProps) {
+  const { t } = useI18n();
   const activeIndex = Math.max(
     0,
     ROLES.findIndex((role) => role.id === activeRole),
@@ -40,7 +55,7 @@ export function RoleTabs({ activeRole, onChange }: RoleTabsProps) {
   return (
     <div
       role="tablist"
-      aria-label="Giriş türü seçimi"
+      aria-label={t('login.roleSelection')}
       className="relative grid grid-cols-3 rounded-2xl border border-slate-200/80 bg-slate-100/70 p-1.5 dark:border-white/[0.08] dark:bg-white/[0.04]"
     >
       <span
@@ -60,7 +75,7 @@ export function RoleTabs({ activeRole, onChange }: RoleTabsProps) {
             type="button"
             role="tab"
             aria-selected={isActive}
-            aria-label={role.label}
+            aria-label={t(LABEL_KEYS[role.id])}
             tabIndex={isActive ? 0 : -1}
             onClick={() => onChange(role.id)}
             onKeyDown={handleKeyDown}
@@ -71,8 +86,8 @@ export function RoleTabs({ activeRole, onChange }: RoleTabsProps) {
                 : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white',
             )}
           >
-            <span className="sm:hidden">{role.tabLabel}</span>
-            <span className="hidden sm:inline">{role.label}</span>
+            <span className="sm:hidden">{t(TAB_KEYS[role.id])}</span>
+            <span className="hidden sm:inline">{t(LABEL_KEYS[role.id])}</span>
           </button>
         );
       })}

@@ -16,7 +16,9 @@ import { Card } from '@/components/ui/Card';
 import { LetterBadge } from '@/components/ui/LetterBadge';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EXAM_SCHEDULE } from '@/data/exams';
-import { COURSES, STUDENT } from '@/data/student';
+import { COURSES } from '@/data/student';
+import { useI18n } from '@/hooks/useI18n';
+import type { MessageKey } from '@/i18n/messages';
 import type { ExamScheduleEntry, ExamType } from '@/types/student';
 import { cx } from '@/utils/cx';
 import { computeAverage, formatGrade, resolveLetter } from '@/utils/grading';
@@ -24,6 +26,19 @@ import { computeAverage, formatGrade, resolveLetter } from '@/utils/grading';
 type Filter = 'Tümü' | ExamType;
 
 const FILTERS: Filter[] = ['Tümü', 'Vize', 'Final', 'Bütünleme'];
+
+const FILTER_LABELS: Record<Filter, MessageKey> = {
+  Tümü: 'sc.exams.filterAll',
+  Vize: 'sc.exams.filterMidterm',
+  Final: 'sc.exams.filterFinal',
+  Bütünleme: 'sc.exams.filterMakeup',
+};
+
+const EXAM_TYPE_LABELS: Record<ExamType, MessageKey> = {
+  Vize: 'sc.exams.filterMidterm',
+  Final: 'sc.exams.filterFinal',
+  Bütünleme: 'sc.exams.filterMakeup',
+};
 
 const TYPE_STYLES: Record<ExamType, string> = {
   Vize: 'border-brand-400/25 bg-brand-500/10 text-brand-700 dark:border-brand-400/20 dark:text-brand-300',
@@ -37,23 +52,6 @@ const TYPE_ICONS: Record<ExamType, LucideIcon> = {
   Final: GraduationCap,
   Bütünleme: RotateCcw,
 };
-
-const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-  weekday: 'long',
-});
-
-const shortDateFormatter = new Intl.DateTimeFormat('tr-TR', {
-  day: 'numeric',
-  month: 'short',
-});
-
-const timeFormatter = new Intl.DateTimeFormat('tr-TR', {
-  hour: '2-digit',
-  minute: '2-digit',
-});
 
 interface Remaining {
   days: number;
@@ -92,6 +90,7 @@ interface ExamCardProps {
 }
 
 function ExamCard({ exam, now }: ExamCardProps) {
+  const { t, formatDate, formatTime } = useI18n();
   const remaining = getRemaining(exam.startsAt, now);
   const TypeIcon = TYPE_ICONS[exam.type];
 
@@ -109,7 +108,7 @@ function ExamCard({ exam, now }: ExamCardProps) {
             )}
           >
             <TypeIcon className="h-2.5 w-2.5" aria-hidden />
-            {exam.type}
+            {t(EXAM_TYPE_LABELS[exam.type])}
           </span>
         </div>
         <span
@@ -120,7 +119,7 @@ function ExamCard({ exam, now }: ExamCardProps) {
               : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
           )}
         >
-          {remaining.finished ? 'Tamamlandı' : 'Yaklaşıyor'}
+          {remaining.finished ? t('sc.exams.completed') : t('sc.exams.upcoming')}
         </span>
       </div>
 
@@ -132,16 +131,22 @@ function ExamCard({ exam, now }: ExamCardProps) {
         <div className="mt-2 space-y-1 text-[9.5px] text-slate-400 dark:text-slate-500">
           <p className="flex items-center gap-1.5">
             <CalendarDays className="h-3 w-3 shrink-0" aria-hidden />
-            {dateFormatter.format(new Date(exam.startsAt))}
+            {formatDate(new Date(exam.startsAt), {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              weekday: 'long',
+            })}
           </p>
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="inline-flex items-center gap-1.5">
               <Clock3 className="h-3 w-3 shrink-0" aria-hidden />
-              {timeFormatter.format(new Date(exam.startsAt))} · {exam.durationMinutes} dk
+              {formatTime(new Date(exam.startsAt))} ·{' '}
+              {t('sc.exams.durationShort', { minutes: exam.durationMinutes })}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <MapPin className="h-3 w-3 shrink-0" aria-hidden />
-              {exam.room} · Sıra {exam.seat}
+              {t('sc.exams.roomSeat', { room: exam.room, seat: exam.seat })}
             </span>
           </p>
         </div>
@@ -149,17 +154,25 @@ function ExamCard({ exam, now }: ExamCardProps) {
         <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-slate-200/70 bg-white/60 px-2.5 py-2 dark:border-white/[0.06] dark:bg-white/[0.03]">
           {remaining.finished ? (
             <span className="text-[9px] font-semibold text-slate-400 dark:text-slate-500">
-              Sınav tarihi geçti
+              {t('sc.exams.expired')}
             </span>
           ) : (
             <>
               <span className="flex items-center gap-1 text-[9px] font-semibold text-slate-400 dark:text-slate-500">
                 <Timer className="h-3 w-3 text-brand-500 dark:text-brand-300" aria-hidden />
-                Kalan
+                {t('sc.exams.remaining')}
               </span>
               <span className="text-[10px] font-bold tabular-nums text-slate-700 dark:text-slate-200">
-                {remaining.days > 0 ? `${remaining.days} gün ` : ''}
-                {remaining.hours} sa {remaining.minutes} dk
+                {remaining.days > 0
+                  ? t('sc.exams.remainingDays', {
+                      days: remaining.days,
+                      hours: remaining.hours,
+                      minutes: remaining.minutes,
+                    })
+                  : t('sc.exams.remainingHours', {
+                      hours: remaining.hours,
+                      minutes: remaining.minutes,
+                    })}
               </span>
             </>
           )}
@@ -170,6 +183,7 @@ function ExamCard({ exam, now }: ExamCardProps) {
 }
 
 export function ExamSchedulePage() {
+  const { t, formatDate, formatTime } = useI18n();
   const now = useNow();
   const [filter, setFilter] = useState<Filter>('Tümü');
 
@@ -197,13 +211,13 @@ export function ExamSchedulePage() {
   return (
     <div className="animate-rise space-y-4">
       <PageHeader
-        eyebrow="Ders ve Dönem İşlemleri"
-        title="Sınav Takvimi & Notlar"
-        description={`${STUDENT.term} dönemi vize, final ve bütünleme sınav tarihlerini geri sayımla takip et; güncel not dökümünü tek ekranda gör.`}
+        eyebrow={t('nav.groups.academic')}
+        title={t('sc.exams.title')}
+        description={t('sc.exams.description', { term: t('common.term') })}
         actions={
           <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-white/70 px-3 py-1.5 text-[10px] font-semibold text-slate-500 backdrop-blur dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-400">
             <CalendarClock className="h-3.5 w-3.5 text-brand-500 dark:text-brand-300" aria-hidden />
-            {EXAM_SCHEDULE.length} sınav kaydı
+            {t('sc.exams.records', { count: EXAM_SCHEDULE.length })}
           </span>
         }
       />
@@ -227,36 +241,41 @@ export function ExamSchedulePage() {
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-70" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-300" />
                 </span>
-                Sıradaki sınav
+                {t('sc.exams.next')}
               </span>
               <h2 className="mt-2.5 font-display text-[22px] font-bold leading-tight tracking-tight sm:text-[26px]">
                 {nextExam.courseName}
               </h2>
               <p className="mt-1.5 text-[10.5px] text-white/60">
-                {nextExam.courseCode} · {nextExam.type} ·{' '}
-                {dateFormatter.format(new Date(nextExam.startsAt))}
+                {nextExam.courseCode} · {t(EXAM_TYPE_LABELS[nextExam.type])} ·{' '}
+                {formatDate(new Date(nextExam.startsAt), {
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                  weekday: 'long',
+                })}
               </p>
               <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-white/55">
                 <span className="inline-flex items-center gap-1">
                   <Clock3 className="h-3 w-3" aria-hidden />
-                  {timeFormatter.format(new Date(nextExam.startsAt))}
+                  {formatTime(new Date(nextExam.startsAt))}
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <MapPin className="h-3 w-3" aria-hidden />
-                  {nextExam.room} · Sıra {nextExam.seat}
+                  {t('sc.exams.roomSeat', { room: nextExam.room, seat: nextExam.seat })}
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <Timer className="h-3 w-3" aria-hidden />
-                  {nextExam.durationMinutes} dakika
+                  {nextExam.durationMinutes} {t('common.minutes')}
                 </span>
               </p>
             </div>
 
             <div className="flex items-end gap-2" aria-live="polite" aria-atomic="true">
               {[
-                { value: nextRemaining.days, label: 'gün' },
-                { value: nextRemaining.hours, label: 'saat' },
-                { value: nextRemaining.minutes, label: 'dakika' },
+                { value: nextRemaining.days, label: t('sc.exams.unitDays') },
+                { value: nextRemaining.hours, label: t('sc.exams.unitHours') },
+                { value: nextRemaining.minutes, label: t('common.minutes') },
               ].map((unit) => (
                 <div
                   key={unit.label}
@@ -276,10 +295,10 @@ export function ExamSchedulePage() {
       ) : (
         <Card className="p-5">
           <p className="text-[12px] font-semibold text-slate-700 dark:text-slate-200">
-            Tüm sınavlar tamamlandı
+            {t('sc.exams.allDone')}
           </p>
           <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">
-            Yeni sınav takvimi yayınlandığında bu ekranda görünecek.
+            {t('sc.exams.allDoneHint')}
           </p>
         </Card>
       )}
@@ -303,7 +322,7 @@ export function ExamSchedulePage() {
                     : 'border-slate-200/80 bg-white/60 text-slate-500 hover:border-brand-300 hover:text-brand-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400 dark:hover:border-white/25 dark:hover:text-white',
                 )}
               >
-                {option}
+                {t(FILTER_LABELS[option])}
                 <span
                   className={cx(
                     'rounded-full px-1.5 text-[8px] font-bold',
@@ -319,7 +338,7 @@ export function ExamSchedulePage() {
           })}
         </div>
         <p className="text-[9.5px] text-slate-400 dark:text-slate-500">
-          Geri sayım her 30 saniyede güncellenir
+          {t('sc.exams.countdownHint')}
         </p>
       </div>
 
@@ -333,43 +352,43 @@ export function ExamSchedulePage() {
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3.5 dark:border-white/[0.06] sm:px-5">
           <div>
             <h2 className="font-display text-[14px] font-semibold text-slate-900 dark:text-white">
-              Not özeti
+              {t('sc.exams.summary')}
             </h2>
             <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-              Vize %40 · Final %60 · Harf notları otomatik hesaplanır
+              {t('sc.exams.summaryHint')}
             </p>
           </div>
           <Link
             to="/panel/dersler"
             className="inline-flex items-center gap-1 rounded-lg text-[9.5px] font-semibold text-brand-600 transition-colors hover:text-brand-500 dark:text-brand-300 dark:hover:text-brand-200"
           >
-            Tüm notlar
+            {t('sc.dash.allGrades')}
             <ArrowUpRight className="h-3 w-3" aria-hidden />
           </Link>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] border-collapse">
-            <caption className="sr-only">Ders bazlı vize, final, ortalama ve harf notu özeti</caption>
+            <caption className="sr-only">{t('sc.exams.tableCaption')}</caption>
             <thead>
               <tr className="border-b border-slate-200/80 text-[8.5px] uppercase tracking-[0.13em] text-slate-400 dark:border-white/10 dark:text-slate-500">
                 <th scope="col" className="py-2.5 pl-4 pr-3 text-left font-semibold sm:pl-5">
-                  Ders
+                  {t('common.course')}
                 </th>
                 <th scope="col" className="px-2 py-2.5 text-center font-semibold">
-                  Vize
+                  {t('sc.table.midterm')}
                 </th>
                 <th scope="col" className="px-2 py-2.5 text-center font-semibold">
-                  Final
+                  {t('sc.table.final')}
                 </th>
                 <th scope="col" className="px-2 py-2.5 text-center font-semibold">
-                  Ortalama
+                  {t('sc.table.average')}
                 </th>
                 <th scope="col" className="px-2 py-2.5 text-center font-semibold">
-                  Harf
+                  {t('sc.table.letterShort')}
                 </th>
                 <th scope="col" className="py-2.5 pl-2 pr-4 text-right font-semibold sm:pr-5">
-                  Final tarihi
+                  {t('sc.exams.finalDate')}
                 </th>
               </tr>
             </thead>
@@ -408,7 +427,10 @@ export function ExamSchedulePage() {
                     </td>
                     <td className="py-2.5 pl-2 pr-4 text-right text-[9px] text-slate-400 sm:pr-5 dark:text-slate-500">
                       {finalExam
-                        ? shortDateFormatter.format(new Date(finalExam.startsAt))
+                        ? formatDate(new Date(finalExam.startsAt), {
+                            day: 'numeric',
+                            month: 'short',
+                          })
                         : '—'}
                     </td>
                   </tr>
@@ -421,7 +443,7 @@ export function ExamSchedulePage() {
 
       <p className="flex items-start gap-2 rounded-2xl border border-slate-200/70 bg-white/60 px-3.5 py-2.5 text-[9px] leading-relaxed text-slate-400 dark:border-white/[0.07] dark:bg-white/[0.03] dark:text-slate-500">
         <Timer className="mt-px h-3 w-3 shrink-0 text-brand-500 dark:text-brand-300" aria-hidden />
-        Sınav tarihleri demo amaçlıdır. Resmî takvim için öğrenci işleri duyurularını takip et.
+        {t('sc.exams.note')}
       </p>
     </div>
   );

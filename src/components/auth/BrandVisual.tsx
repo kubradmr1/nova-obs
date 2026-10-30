@@ -1,8 +1,11 @@
 import { BellRing, TrendingUp } from 'lucide-react';
+import { useI18n } from '@/hooks/useI18n';
 
 const BARCODE_BARS = [10, 16, 8, 20, 12, 22, 9, 18, 13, 20, 11, 17];
 
 export function BrandVisual() {
+  const { t } = useI18n();
+
   return (
     <div
       aria-hidden
@@ -50,7 +53,7 @@ export function BrandVisual() {
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
                   </p>
                   <p className="mt-0.5 text-[10px] text-white/50">
-                    Bulut Bilişim · 2. Sınıf
+                    {t('brand.visual.class', { year: 2 })}
                   </p>
                 </div>
               </div>
@@ -61,7 +64,7 @@ export function BrandVisual() {
             <div className="grid grid-cols-2 gap-2.5">
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.05] px-3 py-2">
                 <p className="text-[8px] font-medium uppercase tracking-[0.16em] text-white/40">
-                  GNO
+                  {t('brand.visual.gpa')}
                 </p>
                 <p className="mt-0.5 font-display text-[17px] font-semibold text-white">
                   3.72
@@ -70,7 +73,7 @@ export function BrandVisual() {
               </div>
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.05] px-3 py-2">
                 <p className="text-[8px] font-medium uppercase tracking-[0.16em] text-white/40">
-                  AKTS
+                  {t('brand.visual.credits')}
                 </p>
                 <p className="mt-0.5 font-display text-[17px] font-semibold text-white">
                   60
@@ -103,7 +106,7 @@ export function BrandVisual() {
           <div className="rounded-2xl border border-white/[0.14] bg-[#120f2c]/85 p-3 shadow-[0_16px_36px_-20px_rgba(0,0,0,0.6)] backdrop-blur-xl">
             <div className="flex items-center justify-between">
               <span className="text-[8px] font-semibold uppercase tracking-[0.16em] text-white/40">
-                Ortalama
+                {t('brand.visual.average')}
               </span>
               <TrendingUp className="h-3 w-3 text-emerald-300" />
             </div>
@@ -138,14 +141,16 @@ export function BrandVisual() {
           <div className="rounded-2xl border border-white/[0.14] bg-[#120f2c]/85 p-3 shadow-[0_16px_36px_-20px_rgba(0,0,0,0.6)] backdrop-blur-xl">
             <div className="flex items-center justify-between">
               <span className="text-[8px] font-semibold uppercase tracking-[0.16em] text-white/40">
-                Devam oranı
+                {t('brand.visual.attendance')}
               </span>
               <span className="text-[10px] font-semibold text-emerald-300">%96</span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
               <div className="h-full w-[96%] rounded-full bg-[linear-gradient(90deg,#34d399,#67e8f9)]" />
             </div>
-            <p className="mt-2 text-[9px] text-white/45">14 ders · 2 devamsızlık</p>
+            <p className="mt-2 text-[9px] text-white/45">
+              {t('brand.visual.attendanceHint', { courses: 14, absences: 2 })}
+            </p>
           </div>
         </div>
       </div>
@@ -162,9 +167,11 @@ export function BrandVisual() {
             </span>
             <div>
               <p className="text-[7.5px] font-semibold uppercase tracking-[0.16em] text-white/35">
-                Duyuru
+                {t('brand.visual.announcement')}
               </p>
-              <p className="text-[9px] font-medium text-white/75">Yeni not açıklandı</p>
+              <p className="text-[9px] font-medium text-white/75">
+                {t('brand.visual.announcementText')}
+              </p>
             </div>
           </div>
         </div>

@@ -2,6 +2,8 @@ import type { LucideIcon } from 'lucide-react';
 
 export type Role = 'student' | 'academic' | 'admin';
 
+export type AuthProviderKind = 'demo' | 'supabase';
+
 export interface LoginCredentials {
   identifier: string;
   password: string;
@@ -12,6 +14,10 @@ export interface SessionUser {
   name: string;
   identifier: string;
   startedAt: string;
+  provider?: AuthProviderKind;
+  profileId?: string;
+  email?: string;
+  academicianKey?: string;
 }
 
 export interface RoleDefinition {

@@ -1,4 +1,5 @@
 import { UNIVERSITY_SHORT } from '@/config/branding';
+import { useI18n } from '@/hooks/useI18n';
 import { cx } from '@/utils/cx';
 
 interface LogoProps {
@@ -6,6 +7,8 @@ interface LogoProps {
 }
 
 export function Logo({ tone = 'auto' }: LogoProps) {
+  const { t } = useI18n();
+
   return (
     <div className="flex items-center gap-3">
       <img
@@ -31,7 +34,7 @@ export function Logo({ tone = 'auto' }: LogoProps) {
             tone === 'light' ? 'text-white/45' : 'text-slate-500 dark:text-slate-400',
           )}
         >
-          Üniversitesi · OBS
+          {t('brand.logoTagline')}
         </p>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { LetterBadge } from '@/components/ui/LetterBadge';
+import { useI18n } from '@/hooks/useI18n';
 import type { CourseRecord } from '@/types/student';
 import { cx } from '@/utils/cx';
 import {
@@ -13,31 +14,35 @@ interface GradeTableProps {
 }
 
 export function GradeTable({ courses }: GradeTableProps) {
+  const { t } = useI18n();
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[780px] border-collapse">
         <caption className="sr-only">
-          2026–2027 Güz dönemi ders notları, vize ve final ağırlıklı ortalamalar
+          {t('sc.table.caption', { term: t('common.term') })}
         </caption>
         <thead>
           <tr className="border-b border-slate-200/80 text-[9.5px] uppercase tracking-[0.14em] text-slate-400 dark:border-white/10 dark:text-slate-500">
             <th scope="col" className="py-3 pl-5 pr-4 text-left font-semibold sm:pl-6">
-              Ders Adı
+              {t('sc.table.courseName')}
             </th>
             <th scope="col" className="px-3 py-3 text-center font-semibold">
-              Vize <span className="font-medium text-slate-300 dark:text-slate-600">(%40)</span>
+              {t('sc.table.midterm')}{' '}
+              <span className="font-medium text-slate-300 dark:text-slate-600">(%40)</span>
             </th>
             <th scope="col" className="px-3 py-3 text-center font-semibold">
-              Final <span className="font-medium text-slate-300 dark:text-slate-600">(%60)</span>
+              {t('sc.table.final')}{' '}
+              <span className="font-medium text-slate-300 dark:text-slate-600">(%60)</span>
             </th>
             <th scope="col" className="px-3 py-3 text-center font-semibold">
-              Ortalama
+              {t('sc.table.average')}
             </th>
             <th scope="col" className="px-3 py-3 text-center font-semibold">
-              Harf Notu
+              {t('sc.table.letterLong')}
             </th>
             <th scope="col" className="py-3 pl-3 pr-5 text-right font-semibold sm:pr-6">
-              AKTS
+              {t('sc.table.ects')}
             </th>
           </tr>
         </thead>
@@ -98,7 +103,7 @@ export function GradeTable({ courses }: GradeTableProps) {
                           : 'text-rose-500 dark:text-rose-300',
                       )}
                     >
-                      {passed ? 'Geçti' : 'Kaldı'}
+                      {passed ? t('sc.table.passed') : t('sc.table.failed')}
                     </span>
                   </div>
                 </td>
@@ -107,7 +112,7 @@ export function GradeTable({ courses }: GradeTableProps) {
                     {course.ects}
                   </p>
                   <p className="text-[9px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                    {course.credits} kredi
+                    {t('sc.table.creditLine', { credits: course.credits })}
                   </p>
                 </td>
               </tr>

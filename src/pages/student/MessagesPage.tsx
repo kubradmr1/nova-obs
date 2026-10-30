@@ -1,57 +1,56 @@
-import { ChevronRight, MessagesSquare, Plus, Search, X } from 'lucide-react';
+import { ChevronRight, Loader2, MessagesSquare, Plus, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { MessageThread } from '@/components/messaging/MessageThread';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Notice } from '@/components/ui/Notice';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { findAcademicianById, findAcademicianByName } from '@/data/academicians';
 import { COURSES, STUDENT } from '@/data/student';
+import { useAuth } from '@/hooks/useAuth';
+import { useI18n } from '@/hooks/useI18n';
 import { useMessaging } from '@/hooks/useMessaging';
 import type { Chat } from '@/types/messaging';
 import { cx } from '@/utils/cx';
-
-const STUDENT_QUICK_REPLIES = [
-  'Teşekkürler hocam!',
-  'Müsait olduğunuzda görüşebilir miyiz?',
-  'Proje teslimi hakkında bir sorum var.',
-];
-
-const listTimeFormatter = new Intl.DateTimeFormat('tr-TR', {
-  hour: '2-digit',
-  minute: '2-digit',
-});
-
-const listDateFormatter = new Intl.DateTimeFormat('tr-TR', {
-  day: '2-digit',
-  month: '2-digit',
-});
 
 function lastActivity(chat: Chat): number {
   const last = chat.messages[chat.messages.length - 1];
   return last ? new Date(last.sentAt).getTime() : 0;
 }
 
-function formatListTime(iso: string): string {
-  const date = new Date(iso);
-  const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-
-  return isToday ? listTimeFormatter.format(date) : listDateFormatter.format(date);
-}
-
 export function StudentMessagesPage() {
-  const { chats, sendMessage, markRead, startConversation } = useMessaging();
+  const { t, formatDate, formatTime } = useI18n();
+  const { session } = useAuth();
+  const {
+    chats,
+    sendMessage,
+    markRead,
+    startConversation,
+    isLoading,
+    error,
+  } = useMessaging();
   const [search, setSearch] = useState('');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const formatListTime = (iso: string): string => {
+    const date = new Date(iso);
+    return date.toDateString() === new Date().toDateString()
+      ? formatTime(date)
+      : formatDate(date, { day: '2-digit', month: '2-digit' });
+  };
+
+  const studentKey =
+    session?.provider === 'supabase' ? (session.profileId ?? '') : STUDENT.identifier;
 
   const studentChats = useMemo(
     () =>
       chats
-        .filter((chat) => chat.studentId === STUDENT.identifier)
+        .filter((chat) => chat.studentId === studentKey)
         .sort((a, b) => lastActivity(b) - lastActivity(a)),
-    [chats],
+    [chats, studentKey],
   );
 
   const filteredChats = useMemo(() => {
@@ -101,7 +100,7 @@ export function StudentMessagesPage() {
     };
   }, [isNewChatOpen]);
 
-  const openConversation = (courseCode: string) => {
+  const openConversation = async (courseCode: string) => {
     const course = COURSES.find((item) => item.code === courseCode);
     const academician = course ? findAcademicianByName(course.instructor) : undefined;
 
@@ -109,37 +108,57 @@ export function StudentMessagesPage() {
       return;
     }
 
-    const chatId = startConversation({
-      studentId: STUDENT.identifier,
-      studentName: STUDENT.name,
-      studentNumber: STUDENT.identifier,
-      academicianId: academician.id,
-      courseCode: course.code,
-      courseName: course.name,
-    });
+    setActionError(null);
 
-    setActiveChatId(chatId);
-    setIsNewChatOpen(false);
-    setSearch('');
+    try {
+      const chatId = await startConversation({
+        studentId: studentKey,
+        studentName: session?.provider === 'supabase' ? session.name : STUDENT.name,
+        studentNumber:
+          session?.provider === 'supabase' ? session.identifier : STUDENT.identifier,
+        academicianId: academician.id,
+        courseCode: course.code,
+        courseName: course.name,
+      });
+
+      setActiveChatId(chatId);
+      setIsNewChatOpen(false);
+      setSearch('');
+    } catch (startError) {
+      setActionError(
+        startError instanceof Error
+          ? startError.message
+          : t('msg.start.failed'),
+      );
+    }
   };
 
   return (
     <div className="space-y-4">
       <PageHeader
-        eyebrow="Danışman İletişimi"
-        title="Mesajlarım"
-        description="Dersin akademisyenini seç, konuşma geçmişini gör ve yeni mesaj gönder. Akademisyenlerin yanıtları bu ekrana anında düşer."
+        eyebrow={t('msg.student.eyebrow')}
+        title={t('msg.student.title')}
+        description={t('msg.student.description')}
         actions={
           <Button
             type="button"
-            onClick={() => setIsNewChatOpen(true)}
+            onClick={() => {
+              setActionError(null);
+              setIsNewChatOpen(true);
+            }}
             className="px-4 py-2.5 text-[12px]"
           >
             <Plus className="h-4 w-4" aria-hidden />
-            Yeni görüşme
+            {t('msg.newChat')}
           </Button>
         }
       />
+
+      {error ? (
+        <Notice tone="danger" title={t('msg.connection')}>
+          {error}
+        </Notice>
+      ) : null}
 
       <Card className="overflow-hidden p-0">
         <div className="grid h-[calc(100dvh-18rem)] min-h-[440px] grid-rows-1 sm:min-h-[540px] lg:h-[calc(100dvh-14rem)] lg:grid-cols-[320px_minmax(0,1fr)]">
@@ -152,7 +171,7 @@ export function StudentMessagesPage() {
             <div className="shrink-0 border-b border-slate-200/70 px-3 py-3 dark:border-white/[0.07]">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-                  Görüşmeler
+                  {t('msg.list.student')}
                 </p>
                 <span className="rounded-full bg-brand-500/10 px-2 py-0.5 text-[9px] font-bold text-brand-600 dark:text-brand-300">
                   {studentChats.length}
@@ -167,21 +186,28 @@ export function StudentMessagesPage() {
                   type="search"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Hoca veya ders ara…"
-                  aria-label="Görüşme ara"
+                  placeholder={t('msg.search.placeholder')}
+                  aria-label={t('msg.search.label')}
                   className="h-9 w-full rounded-xl border border-slate-200/90 bg-white/80 pl-9 pr-3 text-[11px] font-medium text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-500/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-slate-500"
                 />
               </div>
             </div>
 
             <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
-              {filteredChats.length === 0 ? (
+              {isLoading ? (
+                <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+                  <Loader2 className="h-5 w-5 animate-spin text-brand-500 dark:text-brand-300" aria-hidden />
+                  <p className="text-[10.5px] font-medium text-slate-400 dark:text-slate-500">
+                    {t('msg.loading.student')}
+                  </p>
+                </div>
+              ) : filteredChats.length === 0 ? (
                 <div className="px-4 py-10 text-center">
                   <p className="text-[11.5px] font-semibold text-slate-600 dark:text-slate-300">
-                    Görüşme bulunamadı
+                    {t('msg.empty.student.title')}
                   </p>
                   <p className="mt-1 text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
-                    Aramayı temizleyebilir veya yeni bir görüşme başlatabilirsin.
+                    {t('msg.empty.student.hint')}
                   </p>
                 </div>
               ) : (
@@ -206,7 +232,7 @@ export function StudentMessagesPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline justify-between gap-2">
                           <p className="truncate text-[11.5px] font-semibold text-slate-800 dark:text-slate-100">
-                            {academician?.name ?? 'Akademisyen'}
+                            {academician?.name ?? t('msg.fallback.academician')}
                           </p>
                           {last ? (
                             <span className="shrink-0 text-[8.5px] font-medium text-slate-400 dark:text-slate-500">
@@ -220,8 +246,8 @@ export function StudentMessagesPage() {
                           </span>
                           <p className="truncate text-[10px] text-slate-400 dark:text-slate-500">
                             {last
-                              ? `${last.from === 'student' ? 'Sen: ' : ''}${last.text}`
-                              : 'Henüz mesaj yok'}
+                              ? `${last.from === 'student' ? `${t('msg.preview.you')}: ` : ''}${last.text}`
+                              : t('msg.preview.empty')}
                           </p>
                         </div>
                       </div>
@@ -240,16 +266,20 @@ export function StudentMessagesPage() {
           <div
             className={cx(
               'min-h-0 flex-col',
-              activeChat && activeAcademician ? 'flex' : 'hidden lg:flex',
+              activeChat ? 'flex' : 'hidden lg:flex',
             )}
           >
-            {activeChat && activeAcademician ? (
+            {activeChat ? (
               <MessageThread
                 chat={activeChat}
                 viewer="student"
-                peerName={activeAcademician.name}
+                peerName={activeAcademician?.name ?? t('msg.fallback.academician')}
                 peerSubtitle={`${activeChat.courseCode} · ${activeChat.courseName}`}
-                quickReplies={STUDENT_QUICK_REPLIES}
+                quickReplies={[
+                  t('msg.quick.student.thanks'),
+                  t('msg.quick.student.meet'),
+                  t('msg.quick.student.project'),
+                ]}
                 onSend={(text) => sendMessage(activeChat.id, 'student', text)}
                 onBack={() => setActiveChatId(null)}
               />
@@ -259,11 +289,10 @@ export function StudentMessagesPage() {
                   <MessagesSquare className="h-6 w-6" aria-hidden />
                 </span>
                 <p className="text-[13px] font-semibold text-slate-700 dark:text-slate-200">
-                  Bir görüşme seç
+                  {t('msg.select.student.title')}
                 </p>
                 <p className="max-w-[280px] text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
-                  Soldaki listeden bir hocayla konuşmaya devam edebilir veya yeni bir görüşme
-                  başlatabilirsin.
+                  {t('msg.select.student.hint')}
                 </p>
               </div>
             )}
@@ -275,7 +304,7 @@ export function StudentMessagesPage() {
         <div className="fixed inset-0 z-[60] flex items-end justify-center p-3 sm:items-center">
           <button
             type="button"
-            aria-label="Yeni görüşme penceresini kapat"
+            aria-label={t('msg.newChat.close')}
             onClick={() => setIsNewChatOpen(false)}
             className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
           />
@@ -291,16 +320,16 @@ export function StudentMessagesPage() {
                   id="new-chat-title"
                   className="font-display text-[16px] font-bold text-slate-900 dark:text-white"
                 >
-                  Yeni görüşme
+                  {t('msg.newChat')}
                 </h2>
                 <p className="mt-0.5 text-[10.5px] text-slate-400 dark:text-slate-500">
-                  Bir ders seç, dersin akademisyeniyle sohbeti başlat.
+                  {t('msg.newChat.hint')}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsNewChatOpen(false)}
-                aria-label="Kapat"
+                aria-label={t('common.close')}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white"
               >
                 <X className="h-4 w-4" aria-hidden />
@@ -308,11 +337,16 @@ export function StudentMessagesPage() {
             </div>
 
             <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
+              {actionError ? (
+                <div className="p-1.5">
+                  <Notice tone="danger">{actionError}</Notice>
+                </div>
+              ) : null}
               {COURSES.map((course) => {
                 const academician = findAcademicianByName(course.instructor);
                 const existing = chats.find(
                   (chat) =>
-                    chat.studentId === STUDENT.identifier &&
+                    chat.studentId === studentKey &&
                     chat.academicianId === academician?.id &&
                     chat.courseCode === course.code,
                 );
@@ -321,7 +355,7 @@ export function StudentMessagesPage() {
                   <button
                     key={course.code}
                     type="button"
-                    onClick={() => openConversation(course.code)}
+                    onClick={() => void openConversation(course.code)}
                     className="flex w-full items-center gap-3 rounded-2xl px-2.5 py-2.5 text-left transition-colors hover:bg-slate-100/80 dark:hover:bg-white/[0.06]"
                   >
                     <Avatar name={course.instructor} size="md" />
@@ -341,7 +375,7 @@ export function StudentMessagesPage() {
                           : 'bg-slate-100 text-slate-400 dark:bg-white/[0.06] dark:text-slate-500',
                       )}
                     >
-                      {existing ? 'Devam ediyor' : 'Yeni'}
+                      {existing ? t('msg.newChat.ongoing') : t('msg.newChat.new')}
                     </span>
                     <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300 dark:text-slate-600" aria-hidden />
                   </button>

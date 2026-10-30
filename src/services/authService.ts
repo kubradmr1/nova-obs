@@ -1,5 +1,6 @@
 import { getRole } from '@/config/roles';
 import type { LoginCredentials, Role, SessionUser } from '@/types/auth';
+import { LocalizedError } from '@/utils/authErrors';
 
 const REQUEST_DELAY_MS = 900;
 
@@ -13,7 +14,7 @@ export async function authenticate(
   const identifier = credentials.identifier.trim();
 
   if (!identifier || credentials.password.length < 6) {
-    throw new Error('Giriş bilgileri geçersiz.');
+    throw new LocalizedError('auth.error.invalidCredentials');
   }
 
   const isDemoAccount =

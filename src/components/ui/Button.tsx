@@ -1,5 +1,6 @@
 import { Loader2 } from 'lucide-react';
 import type { ButtonHTMLAttributes } from 'react';
+import { useI18n } from '@/hooks/useI18n';
 import { cx } from '@/utils/cx';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost';
@@ -25,12 +26,15 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
 export function Button({
   variant = 'primary',
   isLoading = false,
-  loadingLabel = 'Lütfen bekle',
+  loadingLabel,
   disabled,
   className,
   children,
   ...props
 }: ButtonProps) {
+  const { t } = useI18n();
+  const resolvedLoadingLabel = loadingLabel ?? t('common.loading');
+
   return (
     <button
       type="button"
@@ -48,7 +52,7 @@ export function Button({
         {isLoading ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            {loadingLabel}
+            {resolvedLoadingLabel}
           </>
         ) : (
           children

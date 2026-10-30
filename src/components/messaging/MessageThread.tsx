@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCheck, MessagesSquare, Send, Sparkles } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCheck, MessagesSquare, Send, Sparkles } from 'lucide-react';
 import {
   useEffect,
   useRef,
@@ -8,38 +8,13 @@ import {
   type ReactNode,
 } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
+import { useAuth } from '@/hooks/useAuth';
+import { useI18n } from '@/hooks/useI18n';
 import type { Chat, MessageSide } from '@/types/messaging';
 import { cx } from '@/utils/cx';
 
-const timeFormatter = new Intl.DateTimeFormat('tr-TR', {
-  hour: '2-digit',
-  minute: '2-digit',
-});
-
-const dayFormatter = new Intl.DateTimeFormat('tr-TR', {
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-});
-
 function startOfDay(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-}
-
-function dayLabel(iso: string): string {
-  const date = new Date(iso);
-  const today = startOfDay(new Date());
-  const day = startOfDay(date);
-
-  if (day === today) {
-    return 'Bugün';
-  }
-
-  if (today - day === 86_400_000) {
-    return 'Dün';
-  }
-
-  return dayFormatter.format(date);
 }
 
 interface MessageThreadProps {
@@ -47,7 +22,7 @@ interface MessageThreadProps {
   viewer: MessageSide;
   peerName: string;
   peerSubtitle: string;
-  onSend: (text: string) => void;
+  onSend: (text: string) => void | Promise<void>;
   onBack?: () => void;
   quickReplies?: readonly string[];
 }
@@ -61,12 +36,33 @@ export function MessageThread({
   onBack,
   quickReplies = [],
 }: MessageThreadProps) {
+  const { isSupabaseMode } = useAuth();
+  const { t, formatDate, formatTime } = useI18n();
   const [draft, setDraft] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const dayLabel = (iso: string): string => {
+    const date = new Date(iso);
+    const today = startOfDay(new Date());
+    const day = startOfDay(date);
+
+    if (day === today) {
+      return t('common.today');
+    }
+
+    if (today - day === 86_400_000) {
+      return t('msg.thread.yesterday');
+    }
+
+    return formatDate(date, { day: 'numeric', month: 'long', year: 'numeric' });
+  };
+
   useEffect(() => {
     setDraft('');
+    setSendError(null);
   }, [chat.id]);
 
   useEffect(() => {
@@ -77,27 +73,38 @@ export function MessageThread({
     }
   }, [chat.id, chat.messages.length]);
 
-  const submit = () => {
+  const submit = async () => {
     const text = draft.trim();
 
-    if (!text) {
+    if (!text || isSending) {
       return;
     }
 
-    onSend(text);
-    setDraft('');
-    inputRef.current?.focus();
+    setIsSending(true);
+    setSendError(null);
+
+    try {
+      await onSend(text);
+      setDraft('');
+      inputRef.current?.focus();
+    } catch (error) {
+      setSendError(
+        error instanceof Error ? error.message : t('msg.thread.sendFailed'),
+      );
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    submit();
+    void submit();
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
-      submit();
+      void submit();
     }
   };
 
@@ -142,7 +149,7 @@ export function MessageThread({
               isMine ? 'text-white/70' : 'text-slate-400 dark:text-slate-500',
             )}
           >
-            {timeFormatter.format(new Date(message.sentAt))}
+            {formatTime(message.sentAt)}
             {isMine ? <CheckCheck className="h-3 w-3" aria-hidden /> : null}
           </div>
         </div>
@@ -157,7 +164,7 @@ export function MessageThread({
           <button
             type="button"
             onClick={onBack}
-            aria-label="Görüşme listesine dön"
+            aria-label={t('msg.thread.back')}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white lg:hidden"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -182,7 +189,7 @@ export function MessageThread({
         ref={scrollRef}
         role="log"
         aria-live="polite"
-        aria-label={`${peerName} ile sohbet`}
+        aria-label={t('msg.thread.log', { name: peerName })}
         className="flex-1 space-y-2 overflow-y-auto px-3 py-3 sm:px-4 dark:bg-white/[0.01]"
       >
         {chat.messages.length === 0 ? (
@@ -191,12 +198,12 @@ export function MessageThread({
               <MessagesSquare className="h-5 w-5" aria-hidden />
             </span>
             <p className="text-[12px] font-semibold text-slate-700 dark:text-slate-200">
-              Bu sohbet henüz başlamadı
+              {t('msg.thread.emptyTitle')}
             </p>
             <p className="max-w-[260px] text-[10.5px] leading-relaxed text-slate-400 dark:text-slate-500">
               {viewer === 'student'
-                ? 'İlk mesajı yazarak hocanla iletişime geçebilirsin.'
-                : 'Öğrenciye ilk mesajı sen yazarak görüşmeyi başlatabilirsin.'}
+                ? t('msg.thread.emptyStudent')
+                : t('msg.thread.emptyAcademic')}
             </p>
           </div>
         ) : (
@@ -226,23 +233,37 @@ export function MessageThread({
             ref={inputRef}
             rows={1}
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setSendError(null);
+            }}
             onKeyDown={handleKeyDown}
-            placeholder="Mesajını yaz…"
-            aria-label="Mesaj yaz"
+            placeholder={t('msg.thread.placeholder')}
+            aria-label={t('msg.thread.inputLabel')}
             className="max-h-28 min-h-[36px] flex-1 resize-none bg-transparent py-2 text-[12px] leading-relaxed text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-white dark:placeholder:text-slate-500"
           />
           <button
             type="submit"
-            disabled={draft.trim().length === 0}
-            aria-label="Mesajı gönder"
+            disabled={draft.trim().length === 0 || isSending}
+            aria-label={t('msg.thread.send')}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c5cff,#5f6bff)] text-white shadow-[0_10px_24px_-12px_rgba(124,92,255,0.9)] transition-all duration-200 hover:scale-[1.04] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
           >
-            <Send className="h-4 w-4" aria-hidden />
+            <Send className={cx('h-4 w-4', isSending && 'animate-pulse')} aria-hidden />
           </button>
         </div>
+        {sendError ? (
+          <p
+            role="alert"
+            className="mt-1.5 flex items-center justify-center gap-1.5 text-[9.5px] font-medium text-rose-500 dark:text-rose-400"
+          >
+            <AlertCircle className="h-3 w-3 shrink-0" aria-hidden />
+            {sendError}
+          </p>
+        ) : null}
         <p className="mt-1.5 text-center text-[8.5px] text-slate-300 dark:text-slate-600">
-          Enter ile gönder · Shift + Enter yeni satır
+          {isSupabaseMode
+            ? t('msg.thread.hintRetention')
+            : t('msg.thread.hint')}
         </p>
       </form>
     </div>

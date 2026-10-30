@@ -31,6 +31,9 @@ import {
   summarizeSelection,
 } from '@/data/curriculum';
 import { STUDENT } from '@/data/student';
+import { useI18n } from '@/hooks/useI18n';
+import { localizeClassYear, localizeTerm } from '@/utils/localeData';
+import type { MessageKey } from '@/i18n/messages';
 import type {
   AdvisorApprovalStatus,
   CourseRegistrationState,
@@ -41,31 +44,24 @@ import { readJson, writeJson } from '@/utils/storage';
 
 const STATUS_META: Record<
   AdvisorApprovalStatus,
-  { label: string; icon: LucideIcon; chip: string }
+  { labelKey: MessageKey; icon: LucideIcon; chip: string }
 > = {
   draft: {
-    label: 'Taslak',
+    labelKey: 'se.registration.status.draft',
     icon: PencilLine,
     chip: 'border-amber-400/25 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   },
   pending: {
-    label: 'Onay bekliyor',
+    labelKey: 'se.registration.status.pending',
     icon: Clock3,
     chip: 'border-sky-400/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
   },
   approved: {
-    label: 'Onaylandı',
+    labelKey: 'se.registration.status.approved',
     icon: BadgeCheck,
     chip: 'border-emerald-400/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
   },
 };
-
-const dateTimeFormatter = new Intl.DateTimeFormat('tr-TR', {
-  day: 'numeric',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-});
 
 interface NoticeState {
   tone: 'success' | 'info' | 'warning' | 'danger';
@@ -78,14 +74,22 @@ interface CourseMetaProps {
 }
 
 function CourseMeta({ course }: CourseMetaProps) {
+  const { t } = useI18n();
+
   return (
     <p className="mt-0.5 text-[9px] text-slate-400 dark:text-slate-500">
-      {course.credits} kredi · {course.ects} AKTS · {course.schedule} · {course.room}
+      {t('se.registration.courseMeta', {
+        credits: course.credits,
+        ects: course.ects,
+        schedule: course.schedule,
+        room: course.room,
+      })}
     </p>
   );
 }
 
 export function CourseRegistrationPage() {
+  const { t, formatDate, locale } = useI18n();
   const advisor = findAcademicianByName(STUDENT.advisor);
   const [registration, setRegistration] = useState<CourseRegistrationState>(
     () => readJson<CourseRegistrationState>(REGISTRATION_STORAGE_KEY) ?? SEED_REGISTRATION,
@@ -122,8 +126,12 @@ export function CourseRegistrationPage() {
     if (!isSelected && summary.ects + course.ects > AKTS_MAX) {
       setNotice({
         tone: 'warning',
-        title: 'AKTS sınırı aşılıyor',
-        text: `${course.code} eklenirse ${summary.ects + course.ects} AKTS olur. Dönem için üst sınır ${AKTS_MAX} AKTS.`,
+        title: t('se.registration.notice.limitTitle'),
+        text: t('se.registration.notice.limitText', {
+          course: course.code,
+          total: summary.ects + course.ects,
+          max: AKTS_MAX,
+        }),
       });
       return;
     }
@@ -140,8 +148,11 @@ export function CourseRegistrationPage() {
     if (!canSubmit) {
       setNotice({
         tone: 'danger',
-        title: 'Kayıt gönderilemedi',
-        text: `Danışman onayına göndermek için toplam AKTS ${AKTS_TARGET}–${AKTS_MAX} aralığında olmalı.`,
+        title: t('se.registration.notice.submitFailedTitle'),
+        text: t('se.registration.notice.submitFailedText', {
+          min: AKTS_TARGET,
+          max: AKTS_MAX,
+        }),
       });
       return;
     }
@@ -156,8 +167,8 @@ export function CourseRegistrationPage() {
     });
     setNotice({
       tone: 'info',
-      title: 'Ders kaydı danışmana gönderildi',
-      text: `${STUDENT.advisor} seçimini inceliyor. Onay durumu bu ekrandan takip edilebilir.`,
+      title: t('se.registration.notice.sentTitle'),
+      text: t('se.registration.notice.sentText', { advisor: STUDENT.advisor }),
     });
   };
 
@@ -171,8 +182,11 @@ export function CourseRegistrationPage() {
     });
     setNotice({
       tone: 'success',
-      title: 'Ders kaydı onaylandı',
-      text: `${STUDENT.advisor} kaydını e-imza ile onayladı. Seçimlerin ${STUDENT.term} dönemi için kesinleşti.`,
+      title: t('se.registration.notice.approvedTitle'),
+      text: t('se.registration.notice.approvedText', {
+        advisor: STUDENT.advisor,
+        term: STUDENT.term,
+      }),
     });
   };
 
@@ -180,8 +194,8 @@ export function CourseRegistrationPage() {
     persist({ ...registration, status: 'draft', updatedAt: new Date().toISOString() });
     setNotice({
       tone: 'info',
-      title: 'Kayıt düzenlemeye açıldı',
-      text: 'Seçimlerini güncelledikten sonra yeniden danışman onayına gönderebilirsin.',
+      title: t('se.registration.notice.editTitle'),
+      text: t('se.registration.notice.editText'),
     });
   };
 
@@ -189,28 +203,28 @@ export function CourseRegistrationPage() {
     persist(SEED_REGISTRATION);
     setNotice({
       tone: 'info',
-      title: 'Kayıt geri yüklendi',
-      text: 'Dönem başındaki onaylı ders seçimine dönüldü.',
+      title: t('se.registration.notice.resetTitle'),
+      text: t('se.registration.notice.resetText'),
     });
   };
 
   const timeline = [
     {
-      title: 'Ders seçimi',
+      title: t('se.registration.timeline.courseTitle'),
       text:
         registration.status === 'draft'
-          ? 'Seçimlerini tamamla'
-          : `${summary.courses.length} ders seçildi`,
+          ? t('se.registration.timeline.courseCurrent')
+          : t('se.registration.timeline.courseDone', { count: summary.courses.length }),
       state: registration.status === 'draft' ? 'current' : 'done',
     },
     {
-      title: 'Danışman onayı',
+      title: t('se.registration.timeline.advisorTitle'),
       text:
         registration.status === 'approved'
-          ? 'E-imza ile onaylandı'
+          ? t('se.registration.timeline.advisorApproved')
           : registration.status === 'pending'
-            ? 'İnceleme sürüyor'
-            : 'Gönderim bekleniyor',
+            ? t('se.registration.timeline.advisorPending')
+            : t('se.registration.timeline.advisorWaiting'),
       state:
         registration.status === 'approved'
           ? 'done'
@@ -219,11 +233,11 @@ export function CourseRegistrationPage() {
             : 'upcoming',
     },
     {
-      title: 'Kayıt kesinleşti',
+      title: t('se.registration.timeline.finalTitle'),
       text:
         registration.status === 'approved'
-          ? `${STUDENT.term} aktif`
-          : 'Onay sonrası aktifleşir',
+          ? t('se.registration.timeline.finalActive', { term: STUDENT.term })
+          : t('se.registration.timeline.finalUpcoming'),
       state: registration.status === 'approved' ? 'done' : 'upcoming',
     },
   ] as const;
@@ -231,9 +245,9 @@ export function CourseRegistrationPage() {
   return (
     <div className="animate-rise space-y-4">
       <PageHeader
-        eyebrow="Ders ve Dönem İşlemleri"
-        title="Ders Kaydı & Müfredat"
-        description={`${STUDENT.term} dönemi için zorunlu ve seçmeli derslerini yönet; AKTS sayacını ve danışman onay durumunu anlık takip et.`}
+        eyebrow={t('nav.groups.academic')}
+        title={t('nav.student.registration')}
+        description={t('se.registration.description', { term: STUDENT.term })}
         actions={
           <span
             className={cx(
@@ -242,7 +256,7 @@ export function CourseRegistrationPage() {
             )}
           >
             <StatusIcon className="h-3.5 w-3.5" aria-hidden />
-            {statusMeta.label}
+            {t(statusMeta.labelKey)}
           </span>
         }
       />
@@ -256,26 +270,36 @@ export function CourseRegistrationPage() {
       <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         {[
           {
-            label: 'Toplam AKTS',
+            label: t('se.registration.stats.ects'),
             value: String(summary.ects),
-            hint: `${AKTS_TARGET} hedef · ${AKTS_MAX} üst sınır`,
+            hint: t('se.registration.stats.ectsHint', {
+              target: AKTS_TARGET,
+              max: AKTS_MAX,
+            }),
           },
           {
-            label: 'Kredi',
+            label: t('se.registration.credits'),
             value: String(summary.credits),
-            hint: 'Kredi ağırlıklı GNO',
+            hint: t('se.registration.stats.creditsHint'),
           },
           {
-            label: 'Seçmeli ders',
+            label: t('se.registration.stats.electives'),
             value: String(summary.electiveCount),
-            hint: `${ELECTIVE_CURRICULUM.length} derslik havuz`,
+            hint: t('se.registration.stats.electivesHint', {
+              count: ELECTIVE_CURRICULUM.length,
+            }),
           },
           {
-            label: 'Danışman onayı',
-            value: statusMeta.label,
+            label: t('se.registration.stats.advisor'),
+            value: t(statusMeta.labelKey),
             hint:
               registration.status === 'approved' && registration.approvedAt
-                ? dateTimeFormatter.format(new Date(registration.approvedAt))
+                ? formatDate(registration.approvedAt, {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
                 : 'Salı 14.00 – 16.00',
           },
         ].map((item) => (
@@ -298,14 +322,14 @@ export function CourseRegistrationPage() {
               <div>
                 <h2 className="flex items-center gap-1.5 font-display text-[14px] font-semibold text-slate-900 dark:text-white">
                   <ClipboardList className="h-4 w-4 text-sky-500 dark:text-sky-300" aria-hidden />
-                  Zorunlu dersler
+                  {t('se.registration.requiredTitle')}
                 </h2>
                 <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                  Müfredat gereği otomatik eklenir, kaldırılamaz.
+                  {t('se.registration.requiredHint')}
                 </p>
               </div>
               <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[9px] font-bold text-sky-700 dark:text-sky-300">
-                {REQUIRED_CURRICULUM.length} ders
+                {t('se.registration.courseCount', { count: REQUIRED_CURRICULUM.length })}
               </span>
             </div>
 
@@ -328,7 +352,7 @@ export function CourseRegistrationPage() {
                   </div>
                   <LockKeyhole
                     className="mt-1 h-3 w-3 shrink-0 text-slate-300 dark:text-slate-600"
-                    aria-label="Zorunlu ders"
+                    aria-label={t('se.registration.requiredAria')}
                   />
                 </li>
               ))}
@@ -340,14 +364,14 @@ export function CourseRegistrationPage() {
               <div>
                 <h2 className="flex items-center gap-1.5 font-display text-[14px] font-semibold text-slate-900 dark:text-white">
                   <CloudCog className="h-4 w-4 text-brand-500 dark:text-brand-300" aria-hidden />
-                  Seçmeli ders havuzu
+                  {t('se.registration.electiveTitle')}
                 </h2>
                 <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                  Bulut bilişim uzmanlaşma derslerinden dönemine uygun olanları seç.
+                  {t('se.registration.electiveHint')}
                 </p>
               </div>
               <span className="rounded-full bg-brand-500/10 px-2 py-0.5 text-[9px] font-bold text-brand-700 dark:text-brand-300">
-                {summary.electiveCount} seçili
+                {t('se.registration.electiveSelected', { count: summary.electiveCount })}
               </span>
             </div>
 
@@ -377,7 +401,7 @@ export function CourseRegistrationPage() {
                           {course.code}
                         </span>
                         <span className="rounded-md border border-brand-300/30 bg-brand-500/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-brand-700 dark:text-brand-300">
-                          Seçmeli
+                          {t('se.registration.electiveBadge')}
                         </span>
                       </div>
                       <span
@@ -406,7 +430,10 @@ export function CourseRegistrationPage() {
                       <CourseMeta course={course} />
                       {course.quota ? (
                         <span className="shrink-0 text-[8.5px] font-semibold text-slate-400 dark:text-slate-500">
-                          {course.enrolled}/{course.quota} kontenjan
+                          {t('se.registration.quota', {
+                            enrolled: course.enrolled ?? '',
+                            quota: course.quota,
+                          })}
                         </span>
                       ) : null}
                     </div>
@@ -422,10 +449,10 @@ export function CourseRegistrationPage() {
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h2 className="font-display text-[15px] font-bold text-slate-900 dark:text-white">
-                  Dönem sepeti
+                  {t('se.registration.basketTitle')}
                 </h2>
                 <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                  {STUDENT.term} · {STUDENT.classYear}
+                  {localizeTerm(STUDENT.term, locale)} · {localizeClassYear(STUDENT.classYear, locale)}
                 </p>
               </div>
               <span
@@ -434,14 +461,14 @@ export function CourseRegistrationPage() {
                   statusMeta.chip,
                 )}
               >
-                {statusMeta.label}
+                {t(statusMeta.labelKey)}
               </span>
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-2">
               <div className="rounded-2xl border border-slate-200/70 bg-white/60 p-2.5 dark:border-white/[0.06] dark:bg-white/[0.03]">
                 <p className="text-[8.5px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
-                  AKTS
+                  {t('se.registration.ects')}
                 </p>
                 <p className="mt-1 flex items-baseline gap-1 font-display text-[22px] font-bold leading-none text-slate-900 dark:text-white">
                   {summary.ects}
@@ -452,7 +479,7 @@ export function CourseRegistrationPage() {
               </div>
               <div className="rounded-2xl border border-slate-200/70 bg-white/60 p-2.5 dark:border-white/[0.06] dark:bg-white/[0.03]">
                 <p className="text-[8.5px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
-                  Kredi
+                  {t('se.registration.credits')}
                 </p>
                 <p className="mt-1 font-display text-[22px] font-bold leading-none text-slate-900 dark:text-white">
                   {summary.credits}
@@ -474,7 +501,7 @@ export function CourseRegistrationPage() {
               </div>
               <div className="mt-1.5 flex items-center justify-between text-[8.5px] font-medium text-slate-400 dark:text-slate-500">
                 <span>0</span>
-                <span>{AKTS_TARGET} AKTS hedefi</span>
+                <span>{t('se.registration.targetLabel', { target: AKTS_TARGET })}</span>
                 <span>{AKTS_MAX}</span>
               </div>
             </div>
@@ -482,10 +509,10 @@ export function CourseRegistrationPage() {
             <p className="mt-2 flex items-start gap-1.5 text-[9.5px] leading-relaxed text-slate-400 dark:text-slate-500">
               <Info className="mt-px h-3 w-3 shrink-0 text-brand-500 dark:text-brand-300" aria-hidden />
               {overLimit
-                ? `Toplam ${summary.ects} AKTS ile üst sınırı aştın. Bir seçmeli ders çıkarmalısın.`
+                ? t('se.registration.overLimit', { ects: summary.ects })
                 : belowTarget
-                  ? `Hedefin ${AKTS_TARGET - summary.ects} AKTS altındasın. Seçmeli ders ekleyebilirsin.`
-                  : `${summary.courses.length} dersle dönem hedefini karşılıyorsun.`}
+                  ? t('se.registration.belowTarget', { diff: AKTS_TARGET - summary.ects })
+                  : t('se.registration.onTarget', { count: summary.courses.length })}
             </p>
 
             <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-200/70 pt-3 dark:border-white/[0.07]">
@@ -498,7 +525,7 @@ export function CourseRegistrationPage() {
                     className="px-3.5 py-2.5 text-[11.5px]"
                   >
                     <Send className="h-3.5 w-3.5" aria-hidden />
-                    Danışman onayına gönder
+                    {t('se.registration.send')}
                   </Button>
                   <Button
                     type="button"
@@ -507,7 +534,7 @@ export function CourseRegistrationPage() {
                     className="px-3.5 py-2.5 text-[11.5px]"
                   >
                     <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-                    Geri al
+                    {t('se.registration.undo')}
                   </Button>
                 </>
               ) : registration.status === 'pending' ? (
@@ -518,7 +545,7 @@ export function CourseRegistrationPage() {
                     className="px-3.5 py-2.5 text-[11.5px]"
                   >
                     <BadgeCheck className="h-3.5 w-3.5" aria-hidden />
-                    Demo: onayı simüle et
+                    {t('se.registration.simulateApprove')}
                   </Button>
                   <Button
                     type="button"
@@ -526,7 +553,7 @@ export function CourseRegistrationPage() {
                     onClick={handleEdit}
                     className="px-3.5 py-2.5 text-[11.5px]"
                   >
-                    Düzenle
+                    {t('se.registration.edit')}
                   </Button>
                 </>
               ) : (
@@ -538,7 +565,7 @@ export function CourseRegistrationPage() {
                     className="px-3.5 py-2.5 text-[11.5px]"
                   >
                     <PencilLine className="h-3.5 w-3.5" aria-hidden />
-                    Kaydı düzenle
+                    {t('se.registration.editRegistration')}
                   </Button>
                   <Button
                     type="button"
@@ -547,7 +574,7 @@ export function CourseRegistrationPage() {
                     className="px-3 py-2.5 text-[11px]"
                   >
                     <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-                    Sıfırla
+                    {t('se.registration.reset')}
                   </Button>
                 </>
               )}
@@ -556,7 +583,7 @@ export function CourseRegistrationPage() {
 
           <Card className="p-4 sm:p-5">
             <h2 className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">
-              Onay süreci
+              {t('se.registration.processTitle')}
             </h2>
             <ol className="mt-3 space-y-0">
               {timeline.map((step, index) => (
@@ -604,7 +631,7 @@ export function CourseRegistrationPage() {
               <Avatar name={STUDENT.advisor} size="sm" />
               <div className="min-w-0 flex-1">
                 <p className="text-[8px] font-bold uppercase tracking-[0.14em] text-brand-600 dark:text-brand-300">
-                  Danışman Akademisyen
+                  {t('sidebar.advisor')}
                 </p>
                 <p className="text-[11px] font-semibold leading-snug text-slate-800 dark:text-slate-100">
                   {STUDENT.advisor}
@@ -612,21 +639,25 @@ export function CourseRegistrationPage() {
               </div>
             </div>
             <p className="mt-2 text-[9.5px] leading-relaxed text-slate-400 dark:text-slate-500">
-              {advisor?.department ?? STUDENT.department} · Ofis {advisor?.office ?? 'V-204'} ·{' '}
+              {advisor?.department ?? STUDENT.department} ·{' '}
+              {t('se.registration.office', { office: advisor?.office ?? 'V-204' })} ·{' '}
               {advisor?.officeHours ?? 'Salı 14.00 – 16.00'}
             </p>
             <Link
               to="/panel/mesajlar"
               className="mt-2 inline-flex items-center gap-1 text-[9.5px] font-semibold text-brand-600 transition-colors hover:text-brand-500 dark:text-brand-300 dark:hover:text-brand-200"
             >
-              Danışmana mesaj gönder
+              {t('sidebar.advisorMessage')}
               <ArrowUpRight className="h-3 w-3" aria-hidden />
             </Link>
           </Card>
 
           <p className="px-1 text-[9px] leading-relaxed text-slate-400 dark:text-slate-500">
-            {UNIVERSITY_NAME} ders kayıt kuralları gereği dönemlik yük en az {AKTS_TARGET}, en fazla{' '}
-            {AKTS_MAX} AKTS olabilir. Onaylanan kayıt dönem sonuna kadar geçerlidir.
+            {t('se.registration.rules', {
+              university: UNIVERSITY_NAME,
+              min: AKTS_TARGET,
+              max: AKTS_MAX,
+            })}
           </p>
         </div>
       </div>
