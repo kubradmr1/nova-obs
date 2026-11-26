@@ -108,7 +108,6 @@ const baseTr = {
   'login.password': 'Şifre',
   'login.showPassword': 'Şifreyi göster',
   'login.hidePassword': 'Şifreyi gizle',
-  'login.remember': 'Beni hatırla',
   'login.forgot': 'Şifremi unuttum',
   'login.forgotNotice':
     'Şifre sıfırlama bağlantısı demo sürümünde gönderilmiyor. Demo bilgilerini doldurarak giriş yapabilirsin.',
@@ -133,13 +132,20 @@ const baseTr = {
   'login.badge.demo': 'Demo',
   'login.kvkk.otp': 'KVKK uyumlu · Supabase Auth e-posta doğrulama',
   'login.kvkk.demo': 'KVKK uyumlu · Demo önizleme',
+  'login.subtitle.disabled': 'Giriş hizmeti yapılandırılmamış. Sistem yöneticinizle iletişime geç.',
+  'login.footer.disabled': 'Giriş yapılandırması bekleniyor',
+  'login.badge.disabled': 'Yapılandırılmadı',
+  'login.kvkk.disabled': 'KVKK uyumlu · Giriş servisi beklemede',
+  'login.disabled.title': 'Giriş şu anda kullanılamıyor',
+  'login.disabled.body':
+    'Supabase bağlantısı tanımlı değil ve demo modu kapalı. Giriş yapabilmek için sistem yöneticinizden ortam değişkenlerini yapılandırmasını isteyin.',
   'otp.emailLabel': 'E-posta Adresi',
   'otp.emailHint':
     'Şifre gerekmez. Adresine tek kullanımlık 6 haneli kod gönderilir; kod 10 dakika geçerlidir.',
   'otp.send': 'Giriş kodu gönder',
   'otp.sending': 'Kod gönderiliyor…',
   'otp.autoAccount':
-    'İlk girişte hesabın otomatik oluşturulur. Rolün, {role} için kullandığın e-posta adresine göre atanır.',
+    'Giriş yalnızca önceden yetkilendirilmiş hesaplara açıktır. Hesabın yoksa sistem yöneticinle iletişime geç.',
   'otp.invalidEmail': 'Geçerli bir e-posta adresi gir.',
   'otp.sendFailed': 'Giriş kodu gönderilemedi, tekrar dene.',
   'otp.codeSent': '{email} adresine 6 haneli giriş kodu gönderdik.',
@@ -257,7 +263,7 @@ const baseTr = {
   'attendance.qrTitle': 'Yoklama QR kodu',
   'attendance.qrHint': 'Öğrenciler bu kodu tarayıp dijital imzayla katılım sağlar.',
   'attendance.codeTitle': 'Yedek kod',
-  'attendance.codeHint': 'Kamera çalışmazsa öğrenciler bu 6 haneli kodu elle girebilir.',
+  'attendance.codeHint': 'Kamera çalışmazsa öğrenciler bu 8 haneli kodu elle girebilir.',
   'attendance.sessionTime': 'Kalan süre',
   'attendance.rotationTime': 'Kod yenileniyor',
   'attendance.joined': 'Katılan öğrenciler',
@@ -285,7 +291,7 @@ const baseTr = {
     'Kamera izni verilmedi. Adres çubuğundan izin verip tekrar dene veya kodu elle gir.',
   'attendance.manualTitle': 'Yedek kod ile katıl',
   'attendance.manualLabel': 'Yoklama kodu',
-  'attendance.manualPlaceholder': 'Örn. A1B2C3',
+  'attendance.manualPlaceholder': 'Örn. ABCD2345',
   'attendance.manualSubmit': 'Kodu doğrula',
   'attendance.codeInvalid': 'Kod geçersiz veya süresi dolmuş. Güncel kodu kontrol et.',
   'attendance.sessionFound': 'Yoklama bulundu',
@@ -325,19 +331,44 @@ const baseTr = {
   'attendance.signatureNote': 'İmzan cihazında saklanır ve yoklama kaydına eklenir.',
   'attendance.historyCount': '{count} katılım',
   'attendance.closedNotice': 'Yoklama kapatıldı.',
+  'attendance.rateLimited':
+    'Çok fazla geçersiz kod denemesi yapıldı. Bir dakika sonra tekrar dene.',
+  'attendance.forbidden': 'Bu işlem için yetkin yok.',
+  'attendance.signatureTooLarge':
+    'İmza çok büyük. Daha küçük bir imza çizip tekrar dene.',
+  'attendance.signatureInvalid': 'İmza biçimi geçersiz. İmzanı temizleyip tekrar çiz.',
+  'attendance.unavailable':
+    'Sunucuya ulaşılamadı. Bağlantını kontrol edip tekrar dene.',
+  'attendance.codeFromTeacher': 'Kodu hocandan alıp yedek kod alanına gir.',
+  'attendance.codeUnavailable': 'Kod şu anda kullanılamıyor.',
+  'attendance.missingStudentNumber':
+    'Hesabına öğrenci numarası tanımlanmamış. Yoklamaya katılmak için yöneticinizle iletişime geç.',
+  'attendance.noOwnedCourses': 'Yoklama başlatabileceğin aktif bir ders bulunamadı.',
+  'attendance.coursesFailed': 'Ders listesi yüklenemedi.',
+  'attendance.startError.forbidden': 'Bu ders için yoklama başlatma yetkin yok.',
+  'attendance.startError.courseNotFound': 'Ders bulunamadı veya pasif durumda.',
+  'attendance.startError.invalidDuration': 'Geçersiz oturum süresi.',
+  'attendance.startError.sessionConflict': 'Bu ders için zaten açık bir yoklama var.',
+  'attendance.startError.unavailable':
+    'Yoklama başlatılamadı. Bağlantını kontrol edip tekrar dene.',
+  'attendance.endFailed': 'Yoklama bitirilemedi. Tekrar dene.',
   'auth.error.generic': 'İşlem tamamlanamadı. Lütfen tekrar dene.',
   'auth.error.invalidCredentials': 'Giriş bilgileri geçersiz.',
   'auth.error.tokenExpired': 'Kodun süresi doldu veya geçersiz. Yeni bir kod isteyebilirsin.',
   'auth.error.rateLimit': 'Çok fazla kod talebi gönderildi. Birkaç dakika sonra tekrar dene.',
-  'auth.error.signupDisabled': 'Yeni kullanıcı kaydı kapalı görünüyor. Yöneticinizle iletişime geç.',
+  'auth.error.signupDisabled':
+    'Bu e-posta sistemde kayıtlı değil. Yalnızca önceden yetkilendirilmiş hesaplar giriş yapabilir.',
   'auth.error.emailDisabled': 'E-posta ile giriş sağlayıcısı Supabase üzerinde etkin değil.',
   'auth.error.invalidEmail': 'Geçerli bir e-posta adresi gir.',
   'auth.error.userNotFound': 'Bu e-posta ile kayıtlı bir kullanıcı bulunamadı.',
   'auth.error.network': 'Sunucuya ulaşılamadı. İnternet bağlantını kontrol edip tekrar dene.',
   'auth.error.supabaseRequired': 'E-posta OTP girişi için Supabase yapılandırılmalıdır.',
   'auth.error.sessionFailed': 'Giriş tamamlanamadı. Lütfen yeni bir kod isteyip tekrar dene.',
+  'auth.error.demoDisabled':
+    'Demo girişi bu ortamda devre dışı. Lütfen kurumsal e-posta ile giriş yap.',
+  'auth.error.profileLoadFailed': 'Profil bilgileri yüklenemedi. Lütfen daha sonra tekrar dene.',
   'auth.error.profileMissing':
-    'Profil bilgilerine ulaşılamadı. Supabase üzerinde supabase/schema.sql dosyasının çalıştırıldığından emin ol.',
+    'Hesabına bağlı bir profil bulunamadı. Profil ve rol ataması yalnızca yönetici tarafından yapılabilir; sistem yöneticinizle iletişime geç.',
 } as const;
 
 export const tr = {
@@ -455,7 +486,6 @@ const baseEn: Partial<Record<keyof typeof baseTr, string>> = {
   'login.password': 'Password',
   'login.showPassword': 'Show password',
   'login.hidePassword': 'Hide password',
-  'login.remember': 'Remember me',
   'login.forgot': 'Forgot password',
   'login.forgotNotice':
     'Password reset links are disabled in the demo. Use the demo credentials to sign in.',
@@ -480,13 +510,20 @@ const baseEn: Partial<Record<keyof typeof baseTr, string>> = {
   'login.badge.demo': 'Demo',
   'login.kvkk.otp': 'KVKK compliant · Supabase Auth email verification',
   'login.kvkk.demo': 'KVKK compliant · Demo preview',
+  'login.subtitle.disabled': 'Sign-in is not configured. Contact your system administrator.',
+  'login.footer.disabled': 'Waiting for sign-in configuration',
+  'login.badge.disabled': 'Not configured',
+  'login.kvkk.disabled': 'KVKK compliant · Sign-in service pending',
+  'login.disabled.title': 'Sign-in is currently unavailable',
+  'login.disabled.body':
+    'No Supabase connection is configured and demo mode is disabled. Ask your system administrator to set the environment variables to enable sign-in.',
   'otp.emailLabel': 'Email Address',
   'otp.emailHint':
     'No password required. A one-time 6-digit code is sent to your address and is valid for 10 minutes.',
   'otp.send': 'Send sign-in code',
   'otp.sending': 'Sending code…',
   'otp.autoAccount':
-    'Your account is created on first sign-in. Your role is assigned from the email used for {role}.',
+    'Sign-in is limited to pre-authorised accounts. If you do not have an account, contact your system administrator.',
   'otp.invalidEmail': 'Enter a valid email address.',
   'otp.sendFailed': 'Could not send the sign-in code, please try again.',
   'otp.codeSent': 'We sent a 6-digit sign-in code to {email}.',
@@ -605,7 +642,7 @@ const baseEn: Partial<Record<keyof typeof baseTr, string>> = {
   'attendance.qrTitle': 'Attendance QR code',
   'attendance.qrHint': 'Students scan this code and join with a digital signature.',
   'attendance.codeTitle': 'Backup code',
-  'attendance.codeHint': 'If the camera fails, students can enter this 6-character code manually.',
+  'attendance.codeHint': 'If the camera fails, students can enter this 8-character code manually.',
   'attendance.sessionTime': 'Time remaining',
   'attendance.rotationTime': 'Code refresh',
   'attendance.joined': 'Joined students',
@@ -633,7 +670,7 @@ const baseEn: Partial<Record<keyof typeof baseTr, string>> = {
     'Camera permission was denied. Allow access from the address bar or enter the code manually.',
   'attendance.manualTitle': 'Join with a backup code',
   'attendance.manualLabel': 'Attendance code',
-  'attendance.manualPlaceholder': 'e.g. A1B2C3',
+  'attendance.manualPlaceholder': 'e.g. ABCD2345',
   'attendance.manualSubmit': 'Verify code',
   'attendance.codeInvalid': 'The code is invalid or expired. Check the current code.',
   'attendance.sessionFound': 'Attendance found',
@@ -673,12 +710,36 @@ const baseEn: Partial<Record<keyof typeof baseTr, string>> = {
   'attendance.signatureNote': 'Your signature is stored on this device and attached to the attendance record.',
   'attendance.historyCount': '{count} check-ins',
   'attendance.closedNotice': 'Attendance closed.',
+  'attendance.rateLimited': 'Too many invalid code attempts. Try again in a minute.',
+  'attendance.forbidden': 'You are not allowed to do this.',
+  'attendance.signatureTooLarge':
+    'The signature is too large. Draw a smaller signature and try again.',
+  'attendance.signatureInvalid':
+    'The signature format is invalid. Clear it and draw again.',
+  'attendance.unavailable':
+    'Could not reach the server. Check your connection and try again.',
+  'attendance.codeFromTeacher':
+    'Get the code from your instructor and enter it as a backup code.',
+  'attendance.codeUnavailable': 'The code is not available right now.',
+  'attendance.missingStudentNumber':
+    'No student number is assigned to your account. Contact your administrator to join attendance.',
+  'attendance.noOwnedCourses': 'No active course you can start attendance for was found.',
+  'attendance.coursesFailed': 'The course list could not be loaded.',
+  'attendance.startError.forbidden':
+    'You are not allowed to start attendance for this course.',
+  'attendance.startError.courseNotFound': 'The course was not found or is inactive.',
+  'attendance.startError.invalidDuration': 'Invalid session duration.',
+  'attendance.startError.sessionConflict':
+    'There is already an open attendance for this course.',
+  'attendance.startError.unavailable':
+    'Attendance could not be started. Check your connection and try again.',
+  'attendance.endFailed': 'Attendance could not be ended. Try again.',
   'auth.error.generic': 'Something went wrong. Please try again.',
   'auth.error.invalidCredentials': 'Invalid sign-in details.',
   'auth.error.tokenExpired': 'The code has expired or is invalid. Request a new code.',
   'auth.error.rateLimit': 'Too many code requests. Try again in a few minutes.',
   'auth.error.signupDisabled':
-    'New sign-ups appear to be disabled. Contact your administrator.',
+    'This email is not registered in the system. Only pre-authorised accounts can sign in.',
   'auth.error.emailDisabled': 'The email sign-in provider is not enabled in Supabase.',
   'auth.error.invalidEmail': 'Enter a valid email address.',
   'auth.error.userNotFound': 'No user is registered with this email address.',
@@ -686,8 +747,12 @@ const baseEn: Partial<Record<keyof typeof baseTr, string>> = {
   'auth.error.supabaseRequired': 'Supabase must be configured for email OTP sign-in.',
   'auth.error.sessionFailed':
     'Sign-in could not be completed. Request a new code and try again.',
+  'auth.error.demoDisabled':
+    'Demo sign-in is disabled in this environment. Please sign in with your institutional email.',
+  'auth.error.profileLoadFailed':
+    'Profile details could not be loaded. Please try again later.',
   'auth.error.profileMissing':
-    'Profile details could not be loaded. Make sure supabase/schema.sql has been applied to Supabase.',
+    'No profile is linked to this account. Profile and role assignment can only be done by an administrator; contact your system administrator.',
 };
 
 export const en: Partial<Record<MessageKey, string>> = {

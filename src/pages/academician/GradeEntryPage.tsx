@@ -6,8 +6,8 @@ import { LetterBadge } from '@/components/ui/LetterBadge';
 import { Notice } from '@/components/ui/Notice';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Avatar } from '@/components/ui/Avatar';
-import { ACADEMICIAN_COURSES } from '@/data/academician';
 import { useI18n } from '@/hooks/useI18n';
+import { grades } from '@/services/grades';
 import type { GradeEntry, GradeMap } from '@/types/academician';
 import { cx } from '@/utils/cx';
 import {
@@ -16,7 +16,6 @@ import {
   isPassing,
   resolveLetter,
 } from '@/utils/grading';
-import { cloneGradebooks, loadGradebooks, saveGradebooks } from '@/utils/gradebook';
 
 interface GradebookState {
   drafts: Record<string, GradeMap>;
@@ -56,16 +55,16 @@ function ScoreInput({ label, value, onChange }: ScoreInputProps) {
 
 export function GradeEntryPage() {
   const { t } = useI18n();
+  const courses = grades.loadAcademicianCourses();
   const [state, setState] = useState<GradebookState>(() => {
-    const loaded = loadGradebooks(ACADEMICIAN_COURSES);
-    return { drafts: loaded, saved: cloneGradebooks(loaded) };
+    const loaded = grades.loadAcademicianGradebooks();
+    return { drafts: loaded, saved: grades.cloneAcademicianGradebooks(loaded) };
   });
-  const [activeCode, setActiveCode] = useState(ACADEMICIAN_COURSES[0]?.code ?? '');
+  const [activeCode, setActiveCode] = useState(courses[0]?.code ?? '');
   const [search, setSearch] = useState('');
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
 
-  const activeCourse =
-    ACADEMICIAN_COURSES.find((course) => course.code === activeCode) ?? ACADEMICIAN_COURSES[0];
+  const activeCourse = courses.find((course) => course.code === activeCode) ?? courses[0];
 
   const draftMap = state.drafts[activeCourse.code] ?? {};
   const dirty = courseDirty(state.drafts, state.saved, activeCourse.code);
@@ -142,10 +141,12 @@ export function GradeEntryPage() {
 
   const handleSave = () => {
     const currentDraft = cloneMap(state.drafts[activeCourse.code] ?? {});
-    const nextSaved = { ...state.saved, [activeCourse.code]: currentDraft };
 
-    saveGradebooks(nextSaved);
-    setState((current) => ({ ...current, saved: nextSaved }));
+    grades.saveAcademicianCourseGrades(activeCourse.code, currentDraft);
+    setState((current) => ({
+      ...current,
+      saved: { ...current.saved, [activeCourse.code]: currentDraft },
+    }));
     setSavedNotice(
       t('ac.grade.savedNotice', {
         code: activeCourse.code,
@@ -180,7 +181,7 @@ export function GradeEntryPage() {
           role="group"
           aria-label={t('ac.grade.courseGroup')}
         >
-          {ACADEMICIAN_COURSES.map((course) => {
+          {courses.map((course) => {
             const isActive = course.code === activeCourse.code;
             const hasChanges = courseDirty(state.drafts, state.saved, course.code);
 

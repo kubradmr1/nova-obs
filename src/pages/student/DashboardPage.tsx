@@ -8,13 +8,15 @@ import {
   GraduationCap,
   TrendingUp,
 } from 'lucide-react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { StatCard } from '@/components/student/StatCard';
 import { Card } from '@/components/ui/Card';
 import { LetterBadge } from '@/components/ui/LetterBadge';
-import { COURSES, STUDENT, UPCOMING_EXAMS } from '@/data/student';
+import { STUDENT, UPCOMING_EXAMS } from '@/data/student';
 import { useAuth } from '@/hooks/useAuth';
 import { useI18n } from '@/hooks/useI18n';
+import { grades } from '@/services/grades';
 import { localizeClassYear, localizeTerm } from '@/utils/localeData';
 import {
   absenceLimit,
@@ -37,9 +39,13 @@ function dateFromNow(offsetDays: number): Date {
 export function DashboardPage() {
   const { session } = useAuth();
   const { t, formatDate, locale } = useI18n();
-  const summary = summarizeSemester(COURSES);
-  const attendance = summarizeAttendance(COURSES);
-  const riskCourse = COURSES.find((course) => attendanceStatus(course) !== 'safe');
+  const { courses, hasStaticRecord } = useMemo(
+    () => grades.getStudentGradeView(session?.identifier),
+    [session?.identifier],
+  );
+  const summary = summarizeSemester(courses);
+  const attendance = summarizeAttendance(courses);
+  const riskCourse = courses.find((course) => attendanceStatus(course) !== 'safe');
   const nextExam = UPCOMING_EXAMS.reduce((closest, exam) =>
     exam.inDays < closest.inDays ? exam : closest,
   );
@@ -82,9 +88,9 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label={t('sc.gpa.overall')}
-          value={formatGpa(STUDENT.cumulativeGpa)}
+          value={hasStaticRecord ? formatGpa(STUDENT.cumulativeGpa) : '—'}
           suffix={t('sc.gpa.scale')}
-          hint={t('sc.dash.overallHint', { ects: STUDENT.completedEcts })}
+          hint={hasStaticRecord ? t('sc.dash.overallHint', { ects: STUDENT.completedEcts }) : ''}
           icon={GraduationCap}
           tone="brand"
         />
@@ -136,7 +142,7 @@ export function DashboardPage() {
           </div>
 
           <ul className="divide-y divide-slate-100 dark:divide-white/[0.06]">
-            {COURSES.map((course) => {
+            {courses.map((course) => {
               const average = computeAverage(course.midterm, course.final);
               const letter = resolveLetter(average);
 
@@ -176,7 +182,7 @@ export function DashboardPage() {
               <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold text-emerald-600 dark:text-emerald-300">
                 {t('sc.dash.passedCount', {
                   passed: summary.passedCount,
-                  total: COURSES.length,
+                  total: courses.length,
                 })}
               </span>
             </span>
@@ -195,7 +201,7 @@ export function DashboardPage() {
             </div>
             <ul className="divide-y divide-slate-100 dark:divide-white/[0.06]">
               {UPCOMING_EXAMS.map((exam) => {
-                const course = COURSES.find((item) => item.code === exam.courseCode);
+                const course = courses.find((item) => item.code === exam.courseCode);
                 const date = dateFromNow(exam.inDays);
 
                 return (

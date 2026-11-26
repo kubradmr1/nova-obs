@@ -1,19 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
+import { resolveSupabaseEnv } from '@/lib/supabaseEnv';
 
-const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL ?? '').trim();
-const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? '').trim();
+const supabaseEnv = resolveSupabaseEnv(import.meta.env);
 
-const hasPlaceholderValue =
-  /your-project-ref|your-anon/i.test(supabaseUrl) ||
-  /your-project-ref|your-anon/i.test(supabaseAnonKey);
+export const isSupabaseConfigured = supabaseEnv.isConfigured;
 
-export const isSupabaseConfigured =
-  /^https?:\/\//i.test(supabaseUrl) &&
-  supabaseAnonKey.length > 0 &&
-  !hasPlaceholderValue;
+const demoFlag = (import.meta.env.VITE_ALLOW_DEMO ?? '').trim().toLowerCase();
+
+// Demo girişi yalnızca açıkça istenirse, geliştirme derlemesinde ve
+// Supabase yapılandırılmamışken çalışır. Üretim derlemesinde her zaman kapalıdır.
+export const isDemoAuthEnabled =
+  !import.meta.env.PROD && demoFlag === 'true' && !isSupabaseConfigured;
+
+export const isAuthConfigured = isSupabaseConfigured || isDemoAuthEnabled;
 
 export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey, {
+  ? createClient(supabaseEnv.url, supabaseEnv.key, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -31,7 +33,7 @@ export const supabase = isSupabaseConfigured
 export function requireSupabaseClient() {
   if (!supabase) {
     throw new Error(
-      'Supabase yapılandırılmadı. VITE_SUPABASE_URL ve VITE_SUPABASE_ANON_KEY değerlerini ekleyin.',
+      'Supabase yapılandırılmadı. VITE_SUPABASE_URL ve VITE_SUPABASE_PUBLISHABLE_KEY (eski kurulumlarda VITE_SUPABASE_ANON_KEY) değerlerini ekleyin. Yalnızca public/publishable anahtar kullanılmalıdır.',
     );
   }
 

@@ -16,6 +16,7 @@ import { QrCodeImage } from '@/components/attendance/QrCodeImage';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Notice } from '@/components/ui/Notice';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { runtimeConfig } from '@/config/runtime';
 import { ACADEMICIAN_COURSES } from '@/data/academician';
@@ -28,12 +29,39 @@ import { useAttendance } from '@/hooks/useAttendance';
 import { useAuth } from '@/hooks/useAuth';
 import { useI18n } from '@/hooks/useI18n';
 import { useNow } from '@/hooks/useNow';
+import type { MessageKey } from '@/i18n/messages';
 import { attendanceService } from '@/services/attendance';
 import { buildQrPayload, rotationCountdown, sessionCodeAt } from '@/services/attendance/code';
-import type { AttendanceParticipant, AttendanceSession } from '@/types/attendance';
+import {
+  AttendanceServiceError,
+  type AttendanceCodeSnapshot,
+  type AttendanceCourseSummary,
+  type AttendanceParticipant,
+  type AttendanceSession,
+  type StartFailureReason,
+} from '@/types/attendance';
 import { cx } from '@/utils/cx';
 
 const DURATION_OPTIONS = [5, 10, 15, 30];
+
+interface AttendanceCourseView {
+  code: string;
+  name: string;
+  term: string;
+  schedule: string;
+  room: string;
+  credits: number;
+  ects: number;
+  rosterCount: number;
+}
+
+const START_ERROR_KEYS: Record<StartFailureReason, MessageKey> = {
+  forbidden: 'attendance.startError.forbidden',
+  'course-not-found': 'attendance.startError.courseNotFound',
+  'invalid-duration': 'attendance.startError.invalidDuration',
+  'session-conflict': 'attendance.startError.sessionConflict',
+  unavailable: 'attendance.startError.unavailable',
+};
 
 function formatCountdown(ms: number): string {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -54,7 +82,7 @@ function resolveState(session: AttendanceSession, now: number): SessionState {
 }
 
 export function QrAttendancePage() {
-  const { session } = useAuth();
+  const { session, isSupabaseMode } = useAuth();
   const { t, formatDate, formatTime } = useI18n();
   const now = useNow(1000);
   const sessions = useAttendance();
@@ -71,28 +99,155 @@ export function QrAttendancePage() {
   const [isEnding, setIsEnding] = useState(false);
   const [copied, setCopied] = useState(false);
   const [preview, setPreview] = useState<AttendanceParticipant | null>(null);
+  const [courseOptions, setCourseOptions] = useState<AttendanceCourseSummary[] | null>(null);
+  const [courseLoadError, setCourseLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [remoteCode, setRemoteCode] = useState<AttendanceCodeSnapshot | null>(null);
 
-  const course =
-    ACADEMICIAN_COURSES.find((item) => item.code === courseCode) ?? ACADEMICIAN_COURSES[0];
+  useEffect(() => {
+    if (!isSupabaseMode) {
+      setCourseOptions(null);
+      setCourseLoadError(null);
+      return;
+    }
+
+    let active = true;
+    setCourseLoadError(null);
+
+    attendanceService
+      .listCourses()
+      .then((list) => {
+        if (active) {
+          setCourseOptions(list);
+        }
+      })
+      .catch((error) => {
+        console.error('Ders listesi yüklenemedi:', error);
+
+        if (active) {
+          setCourseLoadError(t('attendance.coursesFailed'));
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isSupabaseMode, t]);
+
+  const courses = useMemo<AttendanceCourseView[]>(() => {
+    if (!isSupabaseMode) {
+      return ACADEMICIAN_COURSES.map((item) => ({
+        code: item.code,
+        name: item.name,
+        term: item.term,
+        schedule: item.schedule,
+        room: item.room,
+        credits: item.credits,
+        ects: item.ects,
+        rosterCount: item.roster.length,
+      }));
+    }
+
+    return (courseOptions ?? []).map((item) => {
+      const meta = ACADEMICIAN_COURSES.find((candidate) => candidate.code === item.code);
+
+      return {
+        code: item.code,
+        name: item.name,
+        term: item.term || meta?.term || '',
+        schedule: meta?.schedule ?? '',
+        room: item.room || meta?.room || '',
+        credits: meta?.credits ?? 0,
+        ects: meta?.ects ?? 0,
+        rosterCount: item.rosterCount,
+      };
+    });
+  }, [isSupabaseMode, courseOptions]);
+
+  useEffect(() => {
+    if (courses.length === 0) {
+      return;
+    }
+
+    if (!courses.some((item) => item.code === courseCode)) {
+      setCourseCode(courses[0].code);
+    }
+  }, [courses, courseCode]);
+
+  const course = courses.find((item) => item.code === courseCode) ?? courses[0];
 
   const mySessions = useMemo(
-    () => sessions.filter((item) => item.academicianId === academicianId),
-    [sessions, academicianId],
+    () =>
+      isSupabaseMode
+        ? sessions
+        : sessions.filter((item) => item.academicianId === academicianId),
+    [sessions, academicianId, isSupabaseMode],
   );
 
   const liveSession = mySessions.find((item) => resolveState(item, now) === 'live');
   const history = mySessions.filter((item) => item.id !== liveSession?.id);
   const liveCourse = liveSession
-    ? ACADEMICIAN_COURSES.find((item) => item.code === liveSession.courseCode)
+    ? courses.find((item) => item.code === liveSession.courseCode)
     : undefined;
+  const liveSessionId = liveSession?.id;
 
-  const currentCode = liveSession ? sessionCodeAt(liveSession, now) : '';
-  const qrPayload = liveSession
-    ? buildQrPayload(liveSession.id, currentCode)
-    : '';
-  const rotationLeft = liveSession
-    ? rotationCountdown(new Date(liveSession.startedAt).getTime(), liveSession.rotationSeconds, now)
+  useEffect(() => {
+    if (!isSupabaseMode || !liveSessionId) {
+      setRemoteCode(null);
+      return;
+    }
+
+    let active = true;
+    let timer: number | undefined;
+
+    const load = async () => {
+      const snapshot = await attendanceService.currentCode(liveSessionId);
+
+      if (!active) {
+        return;
+      }
+
+      setRemoteCode(snapshot);
+
+      if (!snapshot || snapshot.status !== 'active' || !snapshot.codeExpiresAt) {
+        timer = window.setTimeout(() => void load(), 5000);
+        return;
+      }
+
+      const delay = Math.max(
+        1000,
+        new Date(snapshot.codeExpiresAt).getTime() - Date.now() + 400,
+      );
+
+      timer = window.setTimeout(() => void load(), delay);
+    };
+
+    void load();
+
+    return () => {
+      active = false;
+
+      if (timer) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [isSupabaseMode, liveSessionId]);
+
+  const localCode = !isSupabaseMode && liveSession ? sessionCodeAt(liveSession, now) : '';
+  const currentCode = isSupabaseMode ? remoteCode?.code ?? '' : localCode;
+  const qrPayload = liveSession && currentCode ? buildQrPayload(liveSession.id, currentCode) : '';
+  const remoteRotationLeft = remoteCode?.codeExpiresAt
+    ? Math.max(0, Math.ceil((new Date(remoteCode.codeExpiresAt).getTime() - now) / 1000))
     : 0;
+  const rotationLeft = isSupabaseMode
+    ? remoteRotationLeft
+    : liveSession
+      ? rotationCountdown(
+          new Date(liveSession.startedAt).getTime(),
+          liveSession.rotationSeconds,
+          now,
+        )
+      : 0;
   const rotationPercent = liveSession
     ? Math.max(0, Math.min(100, (rotationLeft / liveSession.rotationSeconds) * 100))
     : 0;
@@ -116,6 +271,7 @@ export function QrAttendancePage() {
     }
 
     setIsStarting(true);
+    setActionError(null);
 
     try {
       await attendanceService.startSession({
@@ -126,6 +282,10 @@ export function QrAttendancePage() {
         academicianName,
         durationMinutes: duration,
       });
+    } catch (error) {
+      const reason =
+        error instanceof AttendanceServiceError ? error.reason : 'unavailable';
+      setActionError(t(START_ERROR_KEYS[reason]));
     } finally {
       setIsStarting(false);
     }
@@ -137,9 +297,17 @@ export function QrAttendancePage() {
     }
 
     setIsEnding(true);
+    setActionError(null);
 
     try {
-      await attendanceService.endSession(liveSession.id);
+      const ended = await attendanceService.endSession(liveSession.id);
+
+      if (!ended) {
+        setActionError(t('attendance.endFailed'));
+      }
+    } catch (error) {
+      console.error('Yoklama bitirilemedi:', error);
+      setActionError(t('attendance.endFailed'));
     } finally {
       setIsEnding(false);
     }
@@ -172,6 +340,12 @@ export function QrAttendancePage() {
         description={t('attendance.academic.description')}
       />
 
+      {courseLoadError ? <Notice tone="danger">{courseLoadError}</Notice> : null}
+      {isSupabaseMode && courseOptions && courseOptions.length === 0 ? (
+        <Notice tone="warning">{t('attendance.noOwnedCourses')}</Notice>
+      ) : null}
+      {actionError ? <Notice tone="danger">{actionError}</Notice> : null}
+
       {!liveSession && course ? (
         <Card className="overflow-hidden">
           <div className="grid gap-5 p-5 md:grid-cols-[minmax(0,1fr)_260px]">
@@ -190,7 +364,7 @@ export function QrAttendancePage() {
                     onChange={(event) => setCourseCode(event.target.value)}
                     className="h-11 w-full appearance-none rounded-2xl border border-slate-200/90 bg-white/80 pl-3.5 pr-9 text-[12.5px] font-medium text-slate-900 shadow-sm transition-all duration-200 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-500/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:focus:border-brand-400/70"
                   >
-                    {ACADEMICIAN_COURSES.map((item) => (
+                    {courses.map((item) => (
                       <option key={item.code} value={item.code}>
                         {item.code} · {item.name}
                       </option>
@@ -256,7 +430,7 @@ export function QrAttendancePage() {
                 </p>
                 <p className="flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5 text-brand-500 dark:text-brand-300" aria-hidden />
-                  {t('attendance.rosterCount', { count: course.roster.length })}
+                  {t('attendance.rosterCount', { count: course.rosterCount })}
                 </p>
               </div>
             </aside>
@@ -311,7 +485,19 @@ export function QrAttendancePage() {
                 {t('attendance.qrTitle')}
               </p>
               <div className="mt-3 flex justify-center">
-                <QrCodeImage value={qrPayload} size={210} />
+                {qrPayload ? (
+                  <QrCodeImage value={qrPayload} size={210} />
+                ) : (
+                  <div className="flex h-[210px] w-[210px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-200/90 px-4 text-center dark:border-white/10">
+                    <Hourglass
+                      className="h-6 w-6 text-slate-300 dark:text-slate-600"
+                      aria-hidden
+                    />
+                    <p className="max-w-[160px] text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
+                      {t('attendance.codeUnavailable')}
+                    </p>
+                  </div>
+                )}
               </div>
               <p className="mt-3 text-center text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
                 {t('attendance.qrHint')}
@@ -323,14 +509,15 @@ export function QrAttendancePage() {
                 </p>
                 <div className="mt-1 flex items-center justify-center gap-2">
                   <p className="font-mono text-[22px] font-bold tracking-[0.3em] text-slate-900 dark:text-white">
-                    {currentCode}
+                    {currentCode || '—'}
                   </p>
                   <button
                     type="button"
                     onClick={() => void handleCopy()}
+                    disabled={!currentCode}
                     title={t('common.copy')}
                     aria-label={t('common.copy')}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-white/10 dark:hover:text-brand-300"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/10 dark:hover:text-brand-300"
                   >
                     {copied ? (
                       <Check className="h-3.5 w-3.5 text-emerald-500" aria-hidden />
@@ -369,7 +556,7 @@ export function QrAttendancePage() {
                 <span className="rounded-full bg-brand-500/10 px-2.5 py-1 text-[9.5px] font-bold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
                   {t('attendance.joinedCount', {
                     count: participants.length,
-                    total: liveCourse?.roster.length ?? participants.length,
+                    total: liveCourse?.rosterCount ?? participants.length,
                   })}
                 </span>
               </div>
@@ -437,7 +624,7 @@ export function QrAttendancePage() {
           <ul className="divide-y divide-slate-200/70 dark:divide-white/[0.06]">
             {history.map((item) => {
               const state = resolveState(item, now);
-              const itemCourse = ACADEMICIAN_COURSES.find(
+              const itemCourse = courses.find(
                 (candidate) => candidate.code === item.courseCode,
               );
 
@@ -469,7 +656,7 @@ export function QrAttendancePage() {
                       </span>
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[9.5px] font-bold text-emerald-600 dark:text-emerald-300">
                         <UserCheck className="h-3 w-3" aria-hidden />
-                        {item.participants.length}/{itemCourse?.roster.length ?? item.participants.length}
+                        {item.participants.length}/{itemCourse?.rosterCount ?? item.participants.length}
                       </span>
                     </div>
                   </div>

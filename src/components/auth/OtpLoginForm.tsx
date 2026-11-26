@@ -14,19 +14,12 @@ import { TextField } from '@/components/ui/TextField';
 import { getHomePath } from '@/config/roles';
 import { useAuth } from '@/hooks/useAuth';
 import { useI18n } from '@/hooks/useI18n';
-import type { MessageKey } from '@/i18n/messages';
 import type { Role } from '@/types/auth';
 import { resolveErrorMessage } from '@/utils/authErrors';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const CODE_LENGTH = 6;
 const RESEND_SECONDS = 30;
-
-const ROLE_LABEL_KEYS: Record<Role, MessageKey> = {
-  student: 'role.student.label',
-  academic: 'role.academic.label',
-  admin: 'role.admin.label',
-};
 
 const EMAIL_PLACEHOLDERS: Record<Role, string> = {
   student: 'ad.soyad@ogr.uni.edu.tr',
@@ -38,7 +31,7 @@ type Step = 'email' | 'code';
 
 export function OtpLoginForm({ role }: { role: Role }) {
   const { sendOtp, verifyOtp, logout } = useAuth();
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   const [step, setStep] = useState<Step>('email');
@@ -179,7 +172,7 @@ export function OtpLoginForm({ role }: { role: Role }) {
         </Button>
 
         <p className="text-center text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
-          {t('otp.autoAccount', { role: t(ROLE_LABEL_KEYS[role]).toLocaleLowerCase(locale) })}
+          {t('otp.autoAccount')}
         </p>
       </form>
     );

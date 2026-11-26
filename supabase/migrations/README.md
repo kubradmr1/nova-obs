@@ -353,6 +353,7 @@ Uygulanacak dosyalar ve işler:
 - Canlıya uygulamadan önce staging projesinde aynı sıra, doğrulama ve
   yedekten restore testi yapılmalıdır. Test edilmemiş yedek güvenilir
   değildir.
-- `service_role` anahtarı hiçbir istemci dosyasına veya `.env` örneğine
-  eklenmemelidir. İstemci yalnızca `VITE_SUPABASE_ANON_KEY` kullanır; SQL
-  Editor oturumu ayrı bir yönetim kanalıdır.
+- `service_role` veya `sb_secret_...` anahtarı hiçbir istemci dosyasına veya
+  `.env` örneğine eklenmemelidir. İstemci yalnızca public anahtarı
+  (`VITE_SUPABASE_PUBLISHABLE_KEY`, eski kurulumlarda `VITE_SUPABASE_ANON_KEY`)
+  kullanır; SQL Editor oturumu ayrı bir yönetim kanalıdır.

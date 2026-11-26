@@ -61,7 +61,7 @@ Geleneksel OBS menü başlıkları — *Genel İşlemler*, *Ders ve Dönem İşl
 
 ## Demo Hesapları
 
-Giriş ekranındaki sekmelerden rol seçip aşağıdaki bilgilerle giriş yapabilirsiniz. Demo modunda 6+ karakterli her şifre kabul edilir; önerilen hesaplar:
+Giriş ekranındaki sekmelerden rol seçip aşağıdaki bilgilerle giriş yapabilirsiniz. Demo girişi varsayılan olarak **kapalıdır**; yalnızca `.env` içinde `VITE_ALLOW_DEMO=true` tanımlandığında ve geliştirme derlemesinde etkinleşir. Üretim derlemesinde (`import.meta.env.PROD`) demo girişi her zaman kapalıdır. Demo modunda 6+ karakterli her şifre kabul edilir; önerilen hesaplar:
 
 | Rol | Kullanıcı Adı | Şifre | Yönlendirme |
 | --- | --- | --- | --- |
@@ -69,34 +69,37 @@ Giriş ekranındaki sekmelerden rol seçip aşağıdaki bilgilerle giriş yapabi
 | Akademisyen | `mert.aydin@uni.edu.tr` | `akademi2026` | `/hoca` |
 | Yönetici | `yonetici` | `admin2026` | `/yonetim` |
 
-> Oturum bilgileri `localStorage` üzerinde `obs.session` anahtarıyla saklanır; çıkış yaptığınızda temizlenir.
+> Demo oturumu yalnızca bellekte tutulur; sayfa yenilendiğinde veya çıkış yapıldığında sona erer ve `localStorage`/`sessionStorage` üzerine yazılmaz.
 >
-> **Supabase modu:** `.env` içinde `VITE_SUPABASE_URL` ve `VITE_SUPABASE_ANON_KEY` tanımlıysa şifreli demo formu yerine **e-posta OTP** girişi gösterilir. Demo hesapları yalnızca ortam değişkenleri boşken geçerlidir; ayrıntılar için [Supabase Modu](#-supabase-modu) bölümüne bakın.
+> **Supabase modu:** `.env` içinde `VITE_SUPABASE_URL` ve `VITE_SUPABASE_PUBLISHABLE_KEY` (eski kurulumlarda `VITE_SUPABASE_ANON_KEY`) tanımlıysa şifreli demo formu yerine **e-posta OTP** girişi gösterilir. Supabase yapılandırıldığında demo modu her zaman kapalıdır; ayrıntılar için [Supabase Modu](#-supabase-modu) bölümüne bakın.
 
 ---
 
 ## Supabase Modu
 
-Proje iki modda çalışır; mod seçimi ortam değişkenlerine göre otomatik yapılır:
+Proje üç durumda çalışır; mod seçimi ortam değişkenlerine göre otomatik yapılır:
 
 | Mod | Giriş | Mesajlaşma | Veri kaynağı |
 | --- | --- | --- | --- |
-| **Demo** (varsayılan) | Sekmeli şifreli demo formu | `localStorage` (`obs.chats.v1`) | Tarayıcı |
 | **Supabase** | E-posta OTP (6 haneli kod) | Postgres + Realtime WebSocket | Supabase |
+| **Demo** (yalnızca `VITE_ALLOW_DEMO=true`) | Sekmeli şifreli demo formu | `localStorage` (`obs.chats.v1`) | Tarayıcı |
+| **Kapalı** (varsayılan) | Giriş formu yerine yapılandırma uyarısı | — | — |
 
-İki değerden biri eksikse uygulama güvenli biçimde demo moduna döner. Bu sayede Supabase kurulumu yapılmadan da Netlify önizlemesi ve yerel geliştirme çalışır.
+Supabase anahtarları tanımlı değilse ve `VITE_ALLOW_DEMO=true` değilse giriş ekranı demo hesaplarını ve rol sekmelerini göstermez; yalnızca yapılandırma uyarısı görünür. Üretim derlemesinde demo girişi her zaman kapalıdır.
 
 ### E-posta OTP Girişi
 
-- Kullanıcı e-posta adresini girer, Supabase `signInWithOtp` ile 6 haneli tek kullanımlık kod gönderir.
+- Kullanıcı e-posta adresini girer, Supabase `signInWithOtp` ile 6 haneli tek kullanımlık kod gönderir. İstemci `shouldCreateUser: false` gönderdiği için **OTP yalnızca önceden var olan hesaplara** iletilir; form üzerinden yeni hesap açılamaz.
 - Kod `verifyOtp({ type: 'email' })` ile doğrulanır; oturum, yenileme ve çıkış işlemleri Supabase Auth tarafından yönetilir.
-- İlk girişte `auth.users` kaydı ve profil otomatik oluşturulur. Rol ataması e-posta adresine göre yapılır:
+- Hesaplar sistem yöneticisi tarafından Supabase Auth üzerinden önceden oluşturulur. Profil, veritabanındaki `on_auth_user_created` tetikleyicisi tarafından hazırlanır ve rol e-posta adresinin dizin kaydına göre atanır:
   - `academician_directory` içinde bulunan adres → **akademisyen**
-  - diğer adresler → **öğrenci**
+  - `student_directory` içinde bulunan adres → **öğrenci**
   - yönetici rolü dizinlerden atanmaz; bilinçli olarak SQL ile verilir.
+- **Güvenlik ön koşulu:** Supabase Dashboard → Authentication → Providers → Email bölümünde "Allow new users to sign up" kapatılmalıdır. İstemci ayarı yalnızca uygulama akışını korur; doğrudan Auth API çağrılarını engellemek için sunucu tarafı ayarı ve `handle_new_user()` tetikleyicisinin dizin dışı adresleri reddetmesi gerekir.
+- İstemci `profiles` tablosundan yalnızca **okuma** yapar. Profil bulunamaz veya okunamazsa oturum kapatılır ve kullanıcıya anlaşılır bir hata gösterilir; istemci tarafında profil oluşturma veya rol atama yapılmaz.
 - "Akademisyen" sekmesi seçilip dizinde olmayan bir adresle giriş yapılırsa oturum kapatılır ve kullanıcıya uyarı gösterilir. Öğrenci sekmesinden akademisyen hesabıyla giriş yapılırsa kullanıcı kendi paneline yönlendirilir.
 - Kod 10 dakika geçerlidir (Supabase ayarlarından 600 saniye olarak yapılandırılır). Yeniden gönderme için 30 saniyelik istemci bekleme süresi vardır.
-- Supabase modunda demo `obs.session` anahtarı kullanılmaz; oturum Supabase istemcisinde saklanır.
+- Supabase modunda demo oturum anahtarı kullanılmaz; oturum Supabase istemcisinde saklanır.
 
 `src/providers/AuthProvider.tsx` iki modu tek arayüzde birleştirir:
 
@@ -105,7 +108,9 @@ interface AuthContextValue {
   session: SessionUser | null;
   status: 'loading' | 'ready';
   isSupabaseMode: boolean;
-  login: (...) => Promise<SessionUser>;      // demo
+  isDemoMode: boolean;
+  isAuthConfigured: boolean;
+  login: (role, credentials) => Promise<SessionUser>;  // yalnızca demo modu
   sendOtp: (email: string) => Promise<void>;
   verifyOtp: (email: string, token: string) => Promise<SessionUser>;
   logout: () => Promise<void>;
@@ -186,10 +191,10 @@ select cron.schedule(
 
    ```dotenv
    VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-anon-public-key
+   VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
    ```
 
-   Değerler **Project Settings → API** ekranındadır. Yalnızca `anon` public anahtarını kullanın; `service_role` anahtarı asla tarayıcıya girmemelidir.
+   Değerler **Project Settings → API** ekranındadır. Birincil anahtar yeni **Publishable key** (`sb_publishable_...`) değeridir; mevcut kurulumlar `VITE_SUPABASE_ANON_KEY` (legacy `anon` JWT) ile çalışmaya devam eder ve publishable anahtar tanımlıysa legacy değer yok sayılır. `service_role` veya `sb_secret_...` anahtarları asla tarayıcıya girmemelidir.
 
 7. `npm run dev` ile yeniden başlatın. Giriş ekranında şifre alanı yerine **e-posta OTP** akışı görünür.
 
@@ -220,7 +225,7 @@ update public.profiles set role = 'admin' where email = 'yonetici@uni.edu.tr';
 
 **Netlify ortam değişkenleri**
 
-Site → **Site configuration → Environment variables** bölümüne `VITE_SUPABASE_URL` ve `VITE_SUPABASE_ANON_KEY` ekleyip yeniden deploy edin. Vite değişkenleri derleme sırasında gömer; yalnızca Netlify panelinde tanımlamak yeterli değildir, yeni bir build gerekir.
+Site → **Site configuration → Environment variables** bölümüne `VITE_SUPABASE_URL` ve `VITE_SUPABASE_PUBLISHABLE_KEY` (eski kurulumlarda `VITE_SUPABASE_ANON_KEY`) ekleyip yeniden deploy edin. Vite değişkenleri derleme sırasında gömer; yalnızca Netlify panelinde tanımlamak yeterli değildir, yeni bir build gerekir.
 
 > **Üretim notu:** Supabase'in varsayılan e-posta servisi saatlik gönderim sınırına sahiptir. Gerçek kullanımda **Authentication → SMTP Settings** üzerinden kendi SMTP sağlayıcınızı bağlayın. Ayrıca OTP gönderimi için Supabase'in yerleşik e-posta doğrulama ve hız sınırı ayarlarını gözden geçirin.
 
@@ -317,21 +322,29 @@ Akış: butona basıldığında yeni sekmede yazdırma görünümü açılır, 5
 Akademisyenler ders esnasında süreli bir yoklama oturumu açar; öğrenciler dönen QR kodu kamerayla tarayıp ekrana **dokunmatik dijital imza** atarak katılır.
 
 **Akademisyen akışı** (`/hoca/yoklama`)
-- Ders seçimi ve süre (5/10/15/30 dk) ile oturum başlatılır; dersi başka bir oturum açıksa otomatik kapatılır.
-- Ekranda `qrcode` ile üretilen QR, 6 haneli yedek kod, geri sayım ve kod yenilenme çubuğu gösterilir.
+- Ders seçimi ve süre (5/10/15/30 dk) ile oturum başlatılır; aynı ders için açık oturum varsa sunucu `session-conflict` döner.
+- Ekranda sunucudan gelen **8 karakterli** yedek kod, QR, geri sayım ve kod yenilenme çubuğu gösterilir.
 - Katılan öğrenciler gerçek zamanlı listelenir; imza görüntülenebilir, oturum bitirilebilir.
 
 **Öğrenci akışı** (`/panel/yoklama`)
-- Kamera (`BarcodeDetector`) ile QR taranır veya yedek kod elle girilir.
-- Oturum doğrulandıktan sonra imza tuvaline parmak/fare ile imza atılır ve katılım kaydedilir.
+- Kamera (`BarcodeDetector`) ile QR taranır veya 8 karakterli yedek kod elle girilir.
+- Kod sunucuda doğrulandıktan sonra imza tuvaline parmak/fare ile imza atılır ve katılım kaydedilir.
 - Katılım geçmişi ve saklanan imzalar görüntülenebilir.
 
-**Kod güvenliği**
-- Kod, `sessionId + döngü numarası + gizli anahtar` üzerinden FNV-1a ile türetilir ve varsayılan **20 saniyede bir** yenilenir.
-- İmza adımı kod ömründen uzun sürebildiği için son 3 döngü (yaklaşık 1 dakika) geçerli kabul edilir; oturum süresi ayrıca kontrol edilir.
-- Yalnızca ders listesindeki öğrenciler katılabilir, aynı öğrenci ikinci kez imzalayamaz.
+**Kod güvenliği (Supabase modu)**
+- Tüm doğrulama sunucuda yapılır: kod, oturum süresi, roster ve tekrar katılım RPC içinde denetlenir.
+- Yedek kod, gizli anahtar ve döngü numarasından HMAC ile sunucuda üretilir; **20 saniyede bir** yenilenir.
+- Son 3 döngü (yaklaşık 1 dakika) geçerlidir; imza adımı kod ömründen uzun sürebildiği için bu tolerans tanınır.
+- Hatalı kod denemesi profil başına 60 saniyede 5 ile sınırlanır (`rate-limited`).
+- Yalnızca `course_rosters` kaydındaki öğrenciler katılabilir; öğrenci e-postayla giriş yapmış olsa bile roster kontrolü atlanmaz. Aynı öğrenci ikinci kez imzalayamaz.
+- İstemci modu `src/services/attendance/` altındaki servis seçimiyle belirlenir: Supabase yapılandırılmışsa RPC adaptörü, değilse demo adaptörü kullanılır.
 
-**Demo modunda senkronizasyon** `localStorage` (`obs.attendance.sessions.v1`) + `BroadcastChannel` üzerinden sekmeler arasında sağlanır. Supabase/AWS moduna geçerken yalnızca `src/services/attendance/` altındaki depo adaptörü değişir; ekranlar ve iş kuralları aynı kalır.
+**Supabase modu ön koşulları**
+- `supabase/migrations/` altındaki yoklama, RLS ve yetkilendirme migration'larının (20261104_01–03) uygulanmış olması gerekir.
+- Derslerin `academician_courses` üzerinde sahibinin tanımlı, öğrencilerin `course_rosters` ve `student_directory` eşleşmelerinin dolu olması gerekir.
+- RPC adları: `attendance_start_session`, `attendance_current_code`, `attendance_end_session`, `attendance_lookup_code`, `attendance_join_session`.
+
+**Demo modunda senkronizasyon** `localStorage` (`obs.attendance.sessions.v1`) + `BroadcastChannel` üzerinden sekmeler arasında sağlanır; demo kodları istemcide türetilir ve yalnızca demo verisiyle çalışır.
 
 ---
 
@@ -405,7 +418,8 @@ npm install
 
 # (Opsiyonel) Supabase modu için ortam değişkenleri
 cp .env.example .env
-# .env içine VITE_SUPABASE_URL ve VITE_SUPABASE_ANON_KEY değerlerini girin
+# .env içine VITE_SUPABASE_URL ve VITE_SUPABASE_PUBLISHABLE_KEY değerlerini girin
+# (eski kurulumlarda VITE_SUPABASE_ANON_KEY de kabul edilir)
 # Bulut taşıma için VITE_DATA_BACKEND / VITE_API_BASE_URL / VITE_AWS_REGION kullanılır
 
 # Geliştirme sunucusunu başlat
@@ -420,7 +434,7 @@ npm run preview
 
 Geliştirme sunucusu varsayılan olarak `http://127.0.0.1:5173/` adresinde açılır.
 
-`.env` boşsa uygulama demo modunda (şifreli demo girişi + `localStorage`) çalışır. Supabase tablolarını kurmak için [Supabase Kurulumu](#supabase-kurulumu) adımlarını izleyin.
+`.env` içinde Supabase değerleri yoksa ve `VITE_ALLOW_DEMO=true` değilse giriş ekranı yalnızca yapılandırma uyarısı gösterir. Yerel geliştirmede demo girişini açmak için `VITE_ALLOW_DEMO=true` ayarlayın; üretim derlemesinde demo girişi her zaman kapalıdır. Supabase tablolarını kurmak için [Supabase Kurulumu](#supabase-kurulumu) adımlarını izleyin.
 
 ---
 
@@ -476,11 +490,11 @@ OBS/
 
 ## Veri Saklama
 
-**Demo modunda** tüm veriler tarayıcıda saklanır; sunucu veya veritabanı gerekmez. Tema tercihi her iki modda da yereldir.
+**Demo modunda** tüm veriler tarayıcıda saklanır; sunucu veya veritabanı gerekmez. Tema tercihi her iki modda da yereldir. Demo oturumu yalnızca bellekte tutulur; sayfa yenilendiğinde sona erer.
 
 | Anahtar | İçerik |
 | --- | --- |
-| `obs.session` | Demo oturum bilgisi (Supabase modunda kullanılmaz) |
+| `obs.session` | Kullanılmıyor; önceki sürümlerden kalan değer açılışta temizlenir |
 | `obs.locale` | Dil tercihi (`tr` / `en`) |
 | `obs.theme` | Tema tercihi (`light` / `dark`) |
 | `obs.attendance.sessions.v1` | QR yoklama oturumları, katılımcılar ve dijital imzalar |

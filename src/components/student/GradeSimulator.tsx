@@ -1,8 +1,7 @@
 import { AlertTriangle, CheckCircle2, ChevronDown, RotateCcw, Target } from 'lucide-react';
 import { useState } from 'react';
-import { COURSES } from '@/data/student';
 import { useI18n } from '@/hooks/useI18n';
-import type { LetterGrade } from '@/types/student';
+import type { CourseRecord, LetterGrade } from '@/types/student';
 import { cx } from '@/utils/cx';
 import {
   computeAverage,
@@ -75,25 +74,42 @@ function ScoreControl({ id, label, weight, value, onChange }: ScoreControlProps)
   );
 }
 
-export function GradeSimulator() {
+interface GradeSimulatorProps {
+  courses: CourseRecord[];
+}
+
+export function GradeSimulator({ courses }: GradeSimulatorProps) {
   const { t } = useI18n();
-  const [courseCode, setCourseCode] = useState(COURSES[0].code);
-  const course = COURSES.find((item) => item.code === courseCode) ?? COURSES[0];
-  const [midterm, setMidterm] = useState(course.midterm);
-  const [finalScore, setFinalScore] = useState(course.final);
+  const [courseCode, setCourseCode] = useState(courses[0]?.code ?? '');
+  const course = courses.find((item) => item.code === courseCode) ?? courses[0];
+  const [midterm, setMidterm] = useState(course?.midterm ?? 0);
+  const [finalScore, setFinalScore] = useState(course?.final ?? 0);
   const [target, setTarget] = useState<LetterGrade>('DD');
 
   const handleCourseChange = (code: string) => {
-    const next = COURSES.find((item) => item.code === code) ?? COURSES[0];
+    const next = courses.find((item) => item.code === code);
+
+    if (!next) {
+      return;
+    }
+
     setCourseCode(next.code);
     setMidterm(next.midterm);
     setFinalScore(next.final);
   };
 
   const resetToCourseGrades = () => {
+    if (!course) {
+      return;
+    }
+
     setMidterm(course.midterm);
     setFinalScore(course.final);
   };
+
+  if (!course) {
+    return null;
+  }
 
   const targetMin = letterMinimum(target);
   const needed = requiredFinal(midterm, targetMin);
@@ -141,7 +157,7 @@ export function GradeSimulator() {
                 onChange={(event) => handleCourseChange(event.target.value)}
                 className="h-11 w-full appearance-none rounded-2xl border border-slate-200/90 bg-white/80 pl-3.5 pr-10 text-[12px] font-semibold text-slate-800 transition-colors focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-500/10 dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-100"
               >
-                {COURSES.map((item) => (
+                {courses.map((item) => (
                   <option key={item.code} value={item.code}>
                     {item.code} · {item.name}
                   </option>
