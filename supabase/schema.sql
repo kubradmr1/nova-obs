@@ -12,7 +12,8 @@
 --      {{ .ConfirmationURL }} yerine {{ .Token }} kullanın (6 haneli kod).
 --   4. Database → Extensions → pg_cron ve pgcrypto etkin olsun.
 --   5. Proje kökünde .env dosyasına VITE_SUPABASE_URL ve
---      VITE_SUPABASE_ANON_KEY değerlerini ekleyin.
+--      VITE_SUPABASE_PUBLISHABLE_KEY (eski kurulumlarda VITE_SUPABASE_ANON_KEY)
+--      değerlerini ekleyin.
 -- ============================================================================
 
 create extension if not exists pgcrypto;

@@ -1,6 +1,11 @@
 import { runtimeConfig } from '@/config/runtime';
 
-const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+export const ATTENDANCE_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+const CODE_PATTERN = new RegExp(
+  `^[${ATTENDANCE_CODE_ALPHABET}]{${runtimeConfig.attendance.codeLength}}$`,
+);
+
 const QR_PREFIX = 'OBS-YOKLAMA';
 
 // Kod okutulduktan sonra dijital imza adımı birkaç rotasyon sürebilir;
@@ -52,7 +57,7 @@ export function deriveAttendanceCode(
     const blockHash = hash32(source, (0x811c9dc5 + block * 0x9e3779b1) >>> 0);
 
     for (let byte = 0; byte < 4 && code.length < length; byte += 1) {
-      code += ALPHABET[(blockHash >>> (byte * 8)) & 31];
+      code += ATTENDANCE_CODE_ALPHABET[(blockHash >>> (byte * 8)) & 31];
     }
   }
 
@@ -100,11 +105,12 @@ export function parseQrPayload(raw: string): { sessionId: string; code: string }
     return null;
   }
 
-  const [, sessionId, code] = parts;
+  const [, sessionId, rawCode] = parts;
+  const code = rawCode.toUpperCase();
 
-  if (!sessionId || !/^[A-Z0-9]{6}$/i.test(code)) {
+  if (!sessionId || !CODE_PATTERN.test(code)) {
     return null;
   }
 
-  return { sessionId, code: code.toUpperCase() };
+  return { sessionId, code };
 }

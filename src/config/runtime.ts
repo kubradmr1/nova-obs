@@ -1,3 +1,5 @@
+import { resolveSupabaseEnv } from '@/lib/supabaseEnv';
+
 export type DataBackend = 'local' | 'supabase' | 'aws';
 
 const BACKENDS: readonly DataBackend[] = ['local', 'supabase', 'aws'];
@@ -37,9 +39,7 @@ export interface RuntimeConfig {
 }
 
 const env = import.meta.env;
-const hasSupabaseEnv =
-  Boolean((env.VITE_SUPABASE_URL ?? '').trim()) &&
-  Boolean((env.VITE_SUPABASE_ANON_KEY ?? '').trim());
+const hasSupabaseEnv = resolveSupabaseEnv(env).isConfigured;
 
 export const runtimeConfig: RuntimeConfig = {
   backend: parseBackend(env.VITE_DATA_BACKEND, hasSupabaseEnv ? 'supabase' : 'local'),
@@ -50,7 +50,8 @@ export const runtimeConfig: RuntimeConfig = {
     defaultDurationMinutes: 15,
     minDurationMinutes: 5,
     maxDurationMinutes: 120,
-    codeLength: 6,
+    // Sunucu RPC'leri (attendance_*) tam olarak 8 karakter bekler.
+    codeLength: 8,
   },
 };
 

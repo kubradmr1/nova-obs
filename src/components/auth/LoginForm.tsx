@@ -1,7 +1,6 @@
 import {
   AlertCircle,
   ArrowRight,
-  Check,
   Eye,
   EyeOff,
   Hash,
@@ -22,7 +21,6 @@ import { useI18n } from '@/hooks/useI18n';
 import type { MessageKey } from '@/i18n/messages';
 import type { LoginCredentials, Role } from '@/types/auth';
 import { resolveErrorMessage } from '@/utils/authErrors';
-import { cx } from '@/utils/cx';
 import { validateLogin, type LoginErrors } from '@/utils/validation';
 
 const IDENTIFIER_KEYS: Record<Role, MessageKey> = {
@@ -49,7 +47,6 @@ export function LoginForm({ role }: LoginFormProps) {
 
   const [values, setValues] = useState<LoginCredentials>({ identifier: '', password: '' });
   const [errors, setErrors] = useState<LoginErrors>({});
-  const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -69,7 +66,6 @@ export function LoginForm({ role }: LoginFormProps) {
     setErrors({});
     setFormError(null);
     setShowPassword(false);
-    setRemember(true);
     setNotice(
       t('login.demoFilled', {
         role: t(
@@ -98,7 +94,7 @@ export function LoginForm({ role }: LoginFormProps) {
     setIsSubmitting(true);
 
     try {
-      await login(role, values, remember);
+      await login(role, values);
       navigate(getHomePath(role), { replace: true });
     } catch (error) {
       setFormError(resolveErrorMessage(error, t, 'login.failed'));
@@ -147,27 +143,7 @@ export function LoginForm({ role }: LoginFormProps) {
         }
       />
 
-      <div className="flex items-center justify-between gap-3 pt-1">
-        <label className="flex cursor-pointer items-center gap-2.5 text-[12px] font-medium text-slate-500 dark:text-slate-400">
-          <input
-            type="checkbox"
-            checked={remember}
-            onChange={(event) => setRemember(event.target.checked)}
-            className="peer sr-only"
-          />
-          <span
-            className={cx(
-              'flex h-[18px] w-[18px] items-center justify-center rounded-md border transition-all duration-200 peer-focus-visible:ring-4 peer-focus-visible:ring-brand-500/15',
-              remember
-                ? 'border-transparent bg-[linear-gradient(135deg,#7c5cff,#5f6bff)] text-white'
-                : 'border-slate-300 bg-white dark:border-white/15 dark:bg-white/5',
-            )}
-          >
-            {remember ? <Check className="h-3 w-3" strokeWidth={3} aria-hidden /> : null}
-          </span>
-          {t('login.remember')}
-        </label>
-
+      <div className="flex justify-end pt-1">
         <button
           type="button"
           onClick={() => setNotice(t('login.forgotNotice'))}

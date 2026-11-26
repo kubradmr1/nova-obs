@@ -12,7 +12,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { AuthLayout } from '@/layouts/AuthLayout';
 
 export function LoginPage() {
-  const { session, isSupabaseMode } = useAuth();
+  const { session, isSupabaseMode, isDemoMode } = useAuth();
   const { t } = useI18n();
 
   if (session) {
@@ -32,7 +32,11 @@ export function LoginPage() {
             <div className="ml-auto flex items-center gap-2.5">
               <span className="hidden items-center gap-1.5 rounded-full border border-slate-200/80 bg-white/70 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500 backdrop-blur sm:inline-flex dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-400">
                 <span className="h-1 w-1 rounded-full bg-brand-500" />
-                {isSupabaseMode ? t('login.badge.otp') : t('login.badge.demo')}
+                {isSupabaseMode
+                  ? t('login.badge.otp')
+                  : isDemoMode
+                    ? t('login.badge.demo')
+                    : t('login.badge.disabled')}
               </span>
               <LanguageToggle />
               <ThemeToggle />
@@ -47,7 +51,11 @@ export function LoginPage() {
             <p>© 2026 {UNIVERSITY_NAME} · OBS</p>
             <p className="flex items-center gap-1.5">
               <ShieldCheck className="h-3 w-3" aria-hidden />
-              {isSupabaseMode ? t('login.kvkk.otp') : t('login.kvkk.demo')}
+              {isSupabaseMode
+                ? t('login.kvkk.otp')
+                : isDemoMode
+                  ? t('login.kvkk.demo')
+                  : t('login.kvkk.disabled')}
             </p>
           </footer>
         </main>

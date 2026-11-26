@@ -1,23 +1,26 @@
 import { runtimeConfig } from '@/config/runtime';
 import { ACADEMICIAN_COURSES } from '@/data/academician';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import type {
+  AttendanceCodeSnapshot,
+  AttendanceCourseSummary,
+  AttendanceIdentity,
   AttendanceRepository,
+  AttendanceService,
   AttendanceSession,
   JoinFailureReason,
   JoinSessionInput,
   JoinSessionResult,
+  LookupCodeResult,
   StartSessionInput,
 } from '@/types/attendance';
-import { isSessionCodeValid } from './code';
+import {
+  deriveAttendanceCode,
+  isSessionCodeValid,
+  rotationSlot,
+} from './code';
 import { attendanceRepository } from './localRepository';
-
-export interface AttendanceService {
-  listSessions(): Promise<AttendanceSession[]>;
-  subscribe(listener: (sessions: AttendanceSession[]) => void): () => void;
-  startSession(input: StartSessionInput): Promise<AttendanceSession>;
-  endSession(sessionId: string): Promise<AttendanceSession | null>;
-  joinSession(input: JoinSessionInput): Promise<JoinSessionResult>;
-}
+import { createSupabaseAttendanceService } from './supabase';
 
 export function findJoinTarget(
   sessions: AttendanceSession[],
@@ -88,20 +91,52 @@ function createSecret(): string {
   return `${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
 }
 
+// Roster anahtarı öğrenci numarasıdır. E-posta/UUID ile giriş yapan hesap
+// veya bilinmeyen ders eşleşmediği için kontrol fail-closed davranır.
 function isEnrolled(courseCode: string, studentNumber: string): boolean {
-  // Roster anahtarı öğrenci numarasıdır; e-posta/UUID ile giriş yapan
-  // hesaplarda (Supabase) liste kontrolü atlanır.
-  if (!/^\d{4,12}$/.test(studentNumber)) {
-    return true;
-  }
-
   const course = ACADEMICIAN_COURSES.find((item) => item.code === courseCode);
 
   if (!course) {
-    return true;
+    return false;
   }
 
   return course.roster.some((student) => student.number === studentNumber);
+}
+
+function buildCodeSnapshot(
+  session: AttendanceSession,
+  nowMs: number,
+): AttendanceCodeSnapshot {
+  const startedAtMs = new Date(session.startedAt).getTime();
+  const slot = rotationSlot(startedAtMs, session.rotationSeconds, nowMs);
+  const base: AttendanceCodeSnapshot = {
+    sessionId: session.id,
+    status: 'active',
+    code: null,
+    slot,
+    codeExpiresAt: null,
+    endsAt: session.endsAt,
+    rotationSeconds: session.rotationSeconds,
+    serverTime: new Date(nowMs).toISOString(),
+  };
+
+  if (session.status === 'ended') {
+    return { ...base, status: 'ended' };
+  }
+
+  if (nowMs >= new Date(session.endsAt).getTime()) {
+    return { ...base, status: 'expired' };
+  }
+
+  const codeExpiresAt = new Date(
+    startedAtMs + (slot + 1) * session.rotationSeconds * 1000,
+  ).toISOString();
+
+  return {
+    ...base,
+    code: deriveAttendanceCode(session.secret, session.id, slot),
+    codeExpiresAt,
+  };
 }
 
 export function createAttendanceService(repository: AttendanceRepository): AttendanceService {
@@ -120,6 +155,8 @@ export function createAttendanceService(repository: AttendanceRepository): Atten
   repository.subscribe(notify);
 
   return {
+    mode: 'local',
+
     async listSessions() {
       return snapshot();
     },
@@ -186,7 +223,7 @@ export function createAttendanceService(repository: AttendanceRepository): Atten
       return ended;
     },
 
-    async joinSession(input: JoinSessionInput) {
+    async joinSession(input: JoinSessionInput): Promise<JoinSessionResult> {
       const sessions = repository.load();
       const now = Date.now();
       const normalizedCode = input.code.trim().toUpperCase();
@@ -215,27 +252,72 @@ export function createAttendanceService(repository: AttendanceRepository): Atten
         return { ok: false, reason: 'signature-required' };
       }
 
+      const participant = {
+        studentId: input.studentId,
+        studentNumber: input.studentNumber,
+        studentName: input.studentName,
+        signedAt: new Date(now).toISOString(),
+        signature: input.signature,
+        code: normalizedCode,
+      };
+
       const updated: AttendanceSession = {
         ...target,
-        participants: [
-          ...target.participants,
-          {
-            studentId: input.studentId,
-            studentNumber: input.studentNumber,
-            studentName: input.studentName,
-            signedAt: new Date(now).toISOString(),
-            signature: input.signature,
-            code: normalizedCode,
-          },
-        ],
+        participants: [...target.participants, participant],
       };
 
       repository.persist(sessions.map((session) => (session.id === target.id ? updated : session)));
       notify();
 
-      return { ok: true, session: updated };
+      return { ok: true, session: updated, participant };
+    },
+
+    async lookupCode(
+      code: string,
+      identity?: AttendanceIdentity,
+    ): Promise<LookupCodeResult> {
+      const sessions = repository.load();
+      const nowMs = Date.now();
+      const target = findJoinTarget(sessions, {
+        code: code.trim().toUpperCase(),
+        nowMs,
+      });
+
+      if (!target) {
+        return { ok: false, reason: 'invalid-code' };
+      }
+
+      const alreadyJoined = identity
+        ? target.participants.some(
+            (participant) =>
+              participant.studentId === identity.studentId ||
+              participant.studentNumber === identity.studentNumber,
+          )
+        : false;
+
+      return { ok: true, alreadyJoined, session: target };
+    },
+
+    async currentCode(sessionId: string) {
+      const session = repository.load().find((item) => item.id === sessionId);
+
+      return session ? buildCodeSnapshot(session, Date.now()) : null;
+    },
+
+    async listCourses() {
+      return ACADEMICIAN_COURSES.map<AttendanceCourseSummary>((course) => ({
+        code: course.code,
+        name: course.name,
+        term: course.term,
+        room: course.room,
+        rosterCount: course.roster.length,
+      }));
     },
   };
 }
 
-export const attendanceService = createAttendanceService(attendanceRepository);
+const localService = createAttendanceService(attendanceRepository);
+
+export const attendanceService: AttendanceService = isSupabaseConfigured
+  ? createSupabaseAttendanceService()
+  : localService;

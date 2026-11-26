@@ -1,7 +1,12 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AuthContext, type AuthStatus } from '@/context/auth-context';
-import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import {
+  isAuthConfigured,
+  isDemoAuthEnabled,
+  isSupabaseConfigured,
+  supabase,
+} from '@/lib/supabase';
 import { authenticate } from '@/services/authService';
 import type {
   LoginCredentials,
@@ -11,39 +16,9 @@ import type {
 import type { ProfileRecord } from '@/types/supabase';
 import { authErrorMessage, LocalizedError } from '@/utils/authErrors';
 
-const SESSION_STORAGE_KEY = 'obs.session';
-
-function parseSession(raw: string | null): SessionUser | null {
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as Partial<SessionUser>;
-    const hasValidRole =
-      parsed.role === 'student' || parsed.role === 'academic' || parsed.role === 'admin';
-
-    if (
-      !hasValidRole ||
-      typeof parsed.name !== 'string' ||
-      typeof parsed.identifier !== 'string' ||
-      typeof parsed.startedAt !== 'string'
-    ) {
-      return null;
-    }
-
-    return parsed as SessionUser;
-  } catch {
-    return null;
-  }
-}
-
-function readStoredSession(): SessionUser | null {
-  return (
-    parseSession(window.localStorage.getItem(SESSION_STORAGE_KEY)) ??
-    parseSession(window.sessionStorage.getItem(SESSION_STORAGE_KEY))
-  );
-}
+// Önceki sürümlerde demo oturumu kalıcı saklanıyordu; artık yalnızca bellekte
+// tutulduğu için eski anahtar açılışta temizlenir.
+const LEGACY_SESSION_STORAGE_KEY = 'obs.session';
 
 function mapRole(role: ProfileRecord['role']): Role {
   if (role === 'academician') {
@@ -75,9 +50,9 @@ function toSessionUser(profile: ProfileRecord): SessionUser {
   };
 }
 
-async function fetchOrCreateProfile(user: User): Promise<ProfileRecord | null> {
+async function fetchProfile(user: User): Promise<ProfileRecord> {
   if (!supabase) {
-    return null;
+    throw new LocalizedError('auth.error.supabaseRequired');
   }
 
   const { data, error } = await supabase
@@ -88,55 +63,34 @@ async function fetchOrCreateProfile(user: User): Promise<ProfileRecord | null> {
 
   if (error) {
     console.error('Profil okunamadı:', error.message);
-    return null;
+    throw new LocalizedError('auth.error.profileLoadFailed');
   }
 
-  if (data) {
-    return data as ProfileRecord;
+  if (!data) {
+    throw new LocalizedError('auth.error.profileMissing');
   }
 
-  const email = user.email?.toLowerCase() ?? '';
-
-  if (!email) {
-    return null;
-  }
-
-  const metadataName =
-    typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : '';
-  const fallbackName =
-    metadataName || email.split('@')[0]?.replace(/[._-]+/g, ' ') || email;
-
-  // Trigger henüz çalışmadıysa (şema kurulumu eksikse) öğrenci profilini
-  // kendi oturumu için oluşturmayı dene. RLS yalnızca 'student' rolüne izin verir.
-  const { data: created, error: insertError } = await supabase
-    .from('profiles')
-    .insert({ id: user.id, email, full_name: fallbackName })
-    .select('*')
-    .single();
-
-  if (insertError) {
-    console.error('Profil oluşturulamadı:', insertError.message);
-    return null;
-  }
-
-  return created as ProfileRecord;
+  return data as ProfileRecord;
 }
 
-async function resolveSupabaseSession(user: User): Promise<SessionUser | null> {
-  const profile = await fetchOrCreateProfile(user);
-  return profile ? toSessionUser(profile) : null;
+async function resolveSupabaseSession(user: User): Promise<SessionUser> {
+  const profile = await fetchProfile(user);
+  return toSessionUser(profile);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<SessionUser | null>(() =>
-    isSupabaseConfigured ? null : readStoredSession(),
-  );
+  const [session, setSession] = useState<SessionUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>(
     isSupabaseConfigured ? 'loading' : 'ready',
   );
 
   useEffect(() => {
-    if (!supabase) {
+    window.localStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
+    window.sessionStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
+
+    const client = supabase;
+
+    if (!client) {
       return;
     }
 
@@ -153,21 +107,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const resolved = await resolveSupabaseSession(authSession.user);
+      try {
+        const resolved = await resolveSupabaseSession(authSession.user);
 
-      if (!isActive) {
-        return;
+        if (!isActive) {
+          return;
+        }
+
+        setSession(resolved);
+      } catch (error) {
+        // Profil bulunamazsa istemci tarafında profil/rol oluşturulmaz.
+        console.error('Supabase oturumu profil ile eşleştirilemedi:', error);
+
+        if (!isActive) {
+          return;
+        }
+
+        setSession(null);
+        void client.auth.signOut();
+      } finally {
+        if (isActive) {
+          setStatus('ready');
+        }
       }
-
-      setSession(resolved);
-      setStatus('ready');
     };
 
-    void supabase.auth.getSession().then(({ data }) => {
+    void client.auth.getSession().then(({ data }) => {
       void applySession(data.session);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, authSession) => {
+    const { data: listener } = client.auth.onAuthStateChange((_event, authSession) => {
       // Supabase çağrılarını callback içinde beklemek kilitlenmeye yol açabilir.
       window.setTimeout(() => {
         void applySession(authSession);
@@ -181,16 +150,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(
-    async (role: Role, credentials: LoginCredentials, remember: boolean) => {
+    async (role: Role, credentials: LoginCredentials) => {
+      if (!isDemoAuthEnabled) {
+        throw new LocalizedError('auth.error.demoDisabled');
+      }
+
       const user: SessionUser = {
         ...(await authenticate(role, credentials)),
         provider: 'demo',
       };
-      const storage = remember ? window.localStorage : window.sessionStorage;
 
-      window.localStorage.removeItem(SESSION_STORAGE_KEY);
-      window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
-      storage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user));
+      // Demo oturumu yalnızca bellekte tutulur; sayfa yenilendiğinde sona erer.
       setSession(user);
 
       return user;
@@ -203,10 +173,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new LocalizedError('auth.error.supabaseRequired');
     }
 
+    // Üniversite hesapları yalnızca yönetici tarafından önceden oluşturulur.
+    // OTP yalnızca mevcut hesaplara gönderilir; dizin dışı adresler hesap açamaz.
+    // Not: Sunucuda da Supabase Auth signup kapatılmalıdır; bu istemci bayrağı
+    // doğrudan Auth API çağrılarını tek başına engellemez.
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
       options: {
-        shouldCreateUser: true,
+        shouldCreateUser: false,
       },
     });
 
@@ -234,16 +208,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new LocalizedError('auth.error.sessionFailed');
     }
 
-    const resolved = await resolveSupabaseSession(data.session.user);
+    try {
+      const resolved = await resolveSupabaseSession(data.session.user);
 
-    if (!resolved) {
-      throw new LocalizedError('auth.error.profileMissing');
+      setSession(resolved);
+      setStatus('ready');
+
+      return resolved;
+    } catch (error) {
+      // Profil yoksa veya okunamazsa oturum kapatılır; profil/rol istemciden atanmaz.
+      await supabase.auth.signOut();
+      setSession(null);
+
+      if (error instanceof LocalizedError) {
+        throw error;
+      }
+
+      throw new LocalizedError('auth.error.profileLoadFailed');
     }
-
-    setSession(resolved);
-    setStatus('ready');
-
-    return resolved;
   }, []);
 
   const logout = useCallback(async () => {
@@ -251,8 +233,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.auth.signOut();
     }
 
-    window.localStorage.removeItem(SESSION_STORAGE_KEY);
-    window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
     setSession(null);
   }, []);
 
@@ -261,6 +241,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       status,
       isSupabaseMode: isSupabaseConfigured,
+      isDemoMode: isDemoAuthEnabled,
+      isAuthConfigured,
       login,
       sendOtp,
       verifyOtp,

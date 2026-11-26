@@ -1,4 +1,4 @@
-import { LockKeyhole, ShieldCheck } from 'lucide-react';
+import { LockKeyhole, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { getRole } from '@/config/roles';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,9 +16,10 @@ const DESCRIPTION_KEYS: Record<Role, MessageKey> = {
 };
 
 export function LoginCard() {
-  const { isSupabaseMode } = useAuth();
+  const { isSupabaseMode, isDemoMode } = useAuth();
   const { t } = useI18n();
   const [role, setRole] = useState<Role>('student');
+  const isAuthAvailable = isSupabaseMode || isDemoMode;
   const definition = getRole(role);
   const RoleIcon = definition.icon;
 
@@ -45,28 +46,45 @@ export function LoginCard() {
               {t('login.title')}
             </h1>
             <p className="text-[13px] leading-relaxed text-slate-500 dark:text-slate-400">
-              {isSupabaseMode ? t('login.subtitle.otp') : t('login.subtitle.demo')}
+              {isSupabaseMode
+                ? t('login.subtitle.otp')
+                : isDemoMode
+                  ? t('login.subtitle.demo')
+                  : t('login.subtitle.disabled')}
             </p>
           </header>
 
-          <div className="space-y-2.5">
-            <RoleTabs activeRole={role} onChange={setRole} />
-            <p
-              key={role}
-              className="flex animate-rise items-start gap-2 px-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400"
-            >
-              <RoleIcon
-                className="mt-[3px] h-3.5 w-3.5 shrink-0 text-brand-500 dark:text-brand-300"
-                aria-hidden
-              />
-              {t(DESCRIPTION_KEYS[role])}
-            </p>
-          </div>
+          {isAuthAvailable ? (
+            <div className="space-y-2.5">
+              <RoleTabs activeRole={role} onChange={setRole} />
+              <p
+                key={role}
+                className="flex animate-rise items-start gap-2 px-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400"
+              >
+                <RoleIcon
+                  className="mt-[3px] h-3.5 w-3.5 shrink-0 text-brand-500 dark:text-brand-300"
+                  aria-hidden
+                />
+                {t(DESCRIPTION_KEYS[role])}
+              </p>
+            </div>
+          ) : null}
 
           {isSupabaseMode ? (
             <OtpLoginForm key={role} role={role} />
-          ) : (
+          ) : isDemoMode ? (
             <LoginForm key={role} role={role} />
+          ) : (
+            <div
+              role="alert"
+              className="space-y-1.5 rounded-2xl border border-amber-200/70 bg-amber-50/70 px-4 py-3.5 text-[12px] leading-relaxed text-amber-900 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-200"
+            >
+              <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em]">
+                <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden />
+                {t('login.disabled.title')}
+              </p>
+              <p>{t('login.disabled.body')}</p>
+            </div>
           )}
         </div>
 
@@ -77,10 +95,15 @@ export function LoginCard() {
                 <ShieldCheck className="h-3 w-3" aria-hidden />
                 {t('login.footer.otp')}
               </>
-            ) : (
+            ) : isDemoMode ? (
               <>
                 <LockKeyhole className="h-3 w-3" aria-hidden />
                 {t('login.footer.demo')}
+              </>
+            ) : (
+              <>
+                <ShieldAlert className="h-3 w-3" aria-hidden />
+                {t('login.footer.disabled')}
               </>
             )}
           </p>

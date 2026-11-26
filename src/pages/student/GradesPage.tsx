@@ -1,8 +1,11 @@
+import { useMemo } from 'react';
 import { GradeSimulator } from '@/components/student/GradeSimulator';
 import { GradeTable } from '@/components/student/GradeTable';
 import { Card } from '@/components/ui/Card';
-import { COURSES, STUDENT } from '@/data/student';
+import { STUDENT } from '@/data/student';
+import { useAuth } from '@/hooks/useAuth';
 import { useI18n } from '@/hooks/useI18n';
+import { grades } from '@/services/grades';
 import { localizeClassYear, localizeTerm } from '@/utils/localeData';
 import {
   computeAverage,
@@ -14,8 +17,13 @@ import {
 
 export function GradesPage() {
   const { t, locale } = useI18n();
-  const summary = summarizeSemester(COURSES);
-  const aaCount = COURSES.filter(
+  const { session } = useAuth();
+  const { courses } = useMemo(
+    () => grades.getStudentGradeView(session?.identifier),
+    [session?.identifier],
+  );
+  const summary = summarizeSemester(courses);
+  const aaCount = courses.filter(
     (course) => resolveLetter(computeAverage(course.midterm, course.final)) === 'AA',
   ).length;
   const items = [
@@ -77,7 +85,7 @@ export function GradesPage() {
             </h2>
             <p className="mt-0.5 text-[10.5px] text-slate-400 dark:text-slate-500">
               {t('sc.grades.breakdownHint', {
-                courses: COURSES.length,
+                courses: courses.length,
                 credits: summary.credits,
                 ects: summary.ects,
               })}
@@ -88,7 +96,7 @@ export function GradesPage() {
           </span>
         </div>
 
-        <GradeTable courses={COURSES} />
+        <GradeTable courses={courses} />
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/50 px-5 py-3.5 sm:px-6 dark:border-white/[0.06] dark:bg-white/[0.02]">
           <div>
@@ -133,7 +141,7 @@ export function GradesPage() {
           </p>
         </div>
 
-        <GradeSimulator />
+        <GradeSimulator courses={courses} />
       </section>
     </div>
   );

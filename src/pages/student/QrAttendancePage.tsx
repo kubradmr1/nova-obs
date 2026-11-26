@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Notice } from '@/components/ui/Notice';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { runtimeConfig } from '@/config/runtime';
 import { STUDENT } from '@/data/student';
 import { useAttendance } from '@/hooks/useAttendance';
 import { useAuth } from '@/hooks/useAuth';
@@ -44,7 +45,7 @@ function formatCountdown(ms: number): string {
 const STEP_KEYS = ['attendance.step.scan', 'attendance.step.sign', 'attendance.step.done'] as const;
 
 export function QrAttendancePage() {
-  const { session } = useAuth();
+  const { session, isSupabaseMode } = useAuth();
   const { t, formatDate, formatTime } = useI18n();
   const now = useNow(1000);
   const sessions = useAttendance();
@@ -64,6 +65,7 @@ export function QrAttendancePage() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<{ session: AttendanceSession; code: string } | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completed, setCompleted] = useState<{
     session: AttendanceSession;
@@ -84,6 +86,16 @@ export function QrAttendancePage() {
           return t('attendance.closedNotice');
         case 'signature-required':
           return t('attendance.signatureRequired');
+        case 'rate-limited':
+          return t('attendance.rateLimited');
+        case 'forbidden':
+          return t('attendance.forbidden');
+        case 'signature-too-large':
+          return t('attendance.signatureTooLarge');
+        case 'invalid-signature':
+          return t('attendance.signatureInvalid');
+        case 'unavailable':
+          return t('attendance.unavailable');
         default:
           return t('attendance.codeInvalid');
       }
@@ -92,9 +104,40 @@ export function QrAttendancePage() {
   );
 
   const verifyTarget = useCallback(
-    (sessionId: string | undefined, code: string) => {
+    async (sessionId: string | undefined, code: string) => {
+      const normalizedCode = code.trim().toUpperCase();
+
+      if (isSupabaseMode) {
+        setIsVerifying(true);
+
+        try {
+          const result = await attendanceService.lookupCode(normalizedCode);
+
+          if (!result.ok) {
+            setError(reasonMessage(result.reason));
+            return;
+          }
+
+          if (result.alreadyJoined) {
+            setError(t('attendance.alreadySigned'));
+            return;
+          }
+
+          setPending({ session: result.session, code: normalizedCode });
+          setSignature(null);
+          setError(null);
+          setScannerError(null);
+          setIsCameraOpen(false);
+          setStep('sign');
+        } finally {
+          setIsVerifying(false);
+        }
+
+        return;
+      }
+
       const nowMs = Date.now();
-      const target = findJoinTarget(sessions, { sessionId, code, nowMs });
+      const target = findJoinTarget(sessions, { sessionId, code: normalizedCode, nowMs });
 
       if (!target) {
         setError(t('attendance.codeInvalid'));
@@ -102,7 +145,7 @@ export function QrAttendancePage() {
       }
 
       const blocked = joinBlockReason(target, {
-        code,
+        code: normalizedCode,
         studentId,
         studentNumber,
         nowMs,
@@ -113,14 +156,14 @@ export function QrAttendancePage() {
         return;
       }
 
-      setPending({ session: target, code: code.trim().toUpperCase() });
+      setPending({ session: target, code: normalizedCode });
       setSignature(null);
       setError(null);
       setScannerError(null);
       setIsCameraOpen(false);
       setStep('sign');
     },
-    [sessions, studentId, studentNumber, t, reasonMessage],
+    [sessions, studentId, studentNumber, t, reasonMessage, isSupabaseMode],
   );
 
   const handleDetected = useCallback(
@@ -133,7 +176,7 @@ export function QrAttendancePage() {
         return;
       }
 
-      verifyTarget(parsed.sessionId, parsed.code);
+      void verifyTarget(parsed.sessionId, parsed.code);
     },
     [t, verifyTarget],
   );
@@ -148,12 +191,12 @@ export function QrAttendancePage() {
 
     const normalized = manualCode.trim().toUpperCase();
 
-    if (normalized.length !== 6) {
+    if (normalized.length !== runtimeConfig.attendance.codeLength) {
       setError(t('attendance.codeInvalid'));
       return;
     }
 
-    verifyTarget(undefined, normalized);
+    void verifyTarget(undefined, normalized);
   };
 
   const handleSubmitSignature = async () => {
@@ -180,9 +223,11 @@ export function QrAttendancePage() {
       });
 
       if (result.ok) {
-        const participant = result.session.participants.find(
-          (item) => item.studentId === studentId || item.studentNumber === studentNumber,
-        );
+        const participant =
+          result.participant ??
+          result.session.participants.find(
+            (item) => item.studentId === studentId || item.studentNumber === studentNumber,
+          );
 
         setCompleted({ session: result.session, participant: participant ?? {
           studentId,
@@ -271,6 +316,10 @@ export function QrAttendancePage() {
         title={t('attendance.student.title')}
         description={t('attendance.student.description')}
       />
+
+      {isSupabaseMode && !/^\d{4,12}$/.test(studentNumber) ? (
+        <Notice tone="warning">{t('attendance.missingStudentNumber')}</Notice>
+      ) : null}
 
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 px-5 py-4 dark:border-white/[0.07]">
@@ -366,17 +415,24 @@ export function QrAttendancePage() {
                         const value = event.target.value
                           .replace(/[^a-zA-Z0-9]/g, '')
                           .toUpperCase()
-                          .slice(0, 6);
+                          .slice(0, runtimeConfig.attendance.codeLength);
                         setManualCode(value);
                         setError(null);
                       }}
                       aria-label={t('attendance.manualLabel')}
                       placeholder={t('attendance.manualPlaceholder')}
+                      maxLength={runtimeConfig.attendance.codeLength}
                       autoComplete="off"
                       spellCheck={false}
                       className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200/90 bg-white/90 px-3 font-mono text-[14px] font-bold uppercase tracking-[0.28em] text-slate-900 shadow-sm transition-all duration-200 placeholder:font-sans placeholder:text-[11px] placeholder:font-normal placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-300 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-500/10 dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:placeholder:text-slate-600"
                     />
-                    <Button type="submit" className="px-4 py-2.5 text-[12px]">
+                    <Button
+                      type="submit"
+                      isLoading={isVerifying}
+                      loadingLabel={t('attendance.verifying')}
+                      disabled={isVerifying}
+                      className="px-4 py-2.5 text-[12px]"
+                    >
                       <ScanLine className="h-4 w-4" aria-hidden />
                       {t('attendance.manualSubmit')}
                     </Button>
@@ -440,15 +496,21 @@ export function QrAttendancePage() {
                                   })}
                                 </p>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  verifyTarget(item.id, sessionCodeAt(item, Date.now()))
-                                }
-                                className="shrink-0 rounded-lg px-2 py-1 text-[9.5px] font-semibold text-brand-600 transition-colors hover:text-brand-500 dark:text-brand-300 dark:hover:text-brand-200"
-                              >
-                                {t('attendance.step.sign')}
-                              </button>
+                              {isSupabaseMode ? (
+                                <span className="shrink-0 max-w-[120px] text-right text-[9px] leading-relaxed text-slate-400 dark:text-slate-500">
+                                  {t('attendance.codeFromTeacher')}
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    void verifyTarget(item.id, sessionCodeAt(item, Date.now()))
+                                  }
+                                  className="shrink-0 rounded-lg px-2 py-1 text-[9.5px] font-semibold text-brand-600 transition-colors hover:text-brand-500 dark:text-brand-300 dark:hover:text-brand-200"
+                                >
+                                  {t('attendance.step.sign')}
+                                </button>
+                              )}
                             </div>
                           </li>
                         );

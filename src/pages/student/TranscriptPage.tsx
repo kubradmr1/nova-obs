@@ -1,4 +1,5 @@
 import { Info, Printer, ShieldCheck } from 'lucide-react';
+import { useMemo } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { LetterBadge } from '@/components/ui/LetterBadge';
@@ -6,9 +7,10 @@ import {
   UNIVERSITY_NAME,
   UNIVERSITY_VERIFICATION,
 } from '@/config/branding';
-import { ACADEMIC_HISTORY, COURSES, STUDENT } from '@/data/student';
+import { ACADEMIC_HISTORY, STUDENT } from '@/data/student';
 import { useAuth } from '@/hooks/useAuth';
 import { useI18n } from '@/hooks/useI18n';
+import { grades } from '@/services/grades';
 import { localizeClassYear, localizeTerm } from '@/utils/localeData';
 import type { MessageKey } from '@/i18n/messages';
 import type { SemesterRecord } from '@/types/student';
@@ -44,8 +46,14 @@ const STATUS_LABELS: Record<SemesterRecord['status'], MessageKey> = {
 export function TranscriptPage() {
   const { session } = useAuth();
   const { t, formatDate, locale } = useI18n();
-  const summary = summarizeSemester(COURSES);
-  const ectsProgress = Math.round((STUDENT.completedEcts / STUDENT.totalEcts) * 100);
+  const { courses, hasStaticRecord } = useMemo(
+    () => grades.getStudentGradeView(session?.identifier),
+    [session?.identifier],
+  );
+  const summary = summarizeSemester(courses);
+  const ectsProgress = hasStaticRecord
+    ? Math.round((STUDENT.completedEcts / STUDENT.totalEcts) * 100)
+    : 0;
 
   const name = session?.name ?? STUDENT.name;
   const identifier = session?.identifier ?? STUDENT.identifier;
@@ -157,23 +165,25 @@ export function TranscriptPage() {
             {t('sc.transcript.overallAverage')}
           </p>
           <p className="mt-1.5 flex items-baseline gap-1.5 font-display text-[24px] font-bold leading-none text-slate-900 dark:text-white">
-            {formatGpa(STUDENT.cumulativeGpa)}
+            {hasStaticRecord ? formatGpa(STUDENT.cumulativeGpa) : '—'}
             <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">
               {t('sc.gpa.scale')}
             </span>
           </p>
-          <p className="mt-1 text-[9.5px] text-slate-400 dark:text-slate-500">
-            {t('sc.transcript.semestersAverage', { count: ACADEMIC_HISTORY.length })}
-          </p>
+          {hasStaticRecord ? (
+            <p className="mt-1 text-[9.5px] text-slate-400 dark:text-slate-500">
+              {t('sc.transcript.semestersAverage', { count: ACADEMIC_HISTORY.length })}
+            </p>
+          ) : null}
         </Card>
         <Card className="p-4">
           <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
             {t('sc.grades.totalEcts')}
           </p>
           <p className="mt-1.5 flex items-baseline gap-1.5 font-display text-[24px] font-bold leading-none text-slate-900 dark:text-white">
-            {STUDENT.completedEcts}
+            {hasStaticRecord ? STUDENT.completedEcts : '—'}
             <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">
-              / {STUDENT.totalEcts}
+              / {hasStaticRecord ? STUDENT.totalEcts : '—'}
             </span>
           </p>
           <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
@@ -196,7 +206,7 @@ export function TranscriptPage() {
           <p className="mt-1 text-[9.5px] text-slate-400 dark:text-slate-500">
             {t('sc.transcript.termPassed', {
               passed: summary.passedCount,
-              total: COURSES.length,
+              total: courses.length,
               ects: summary.ects,
             })}
           </p>
@@ -249,7 +259,7 @@ export function TranscriptPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/[0.06]">
-              {COURSES.map((course) => {
+              {courses.map((course) => {
                 const average = computeAverage(course.midterm, course.final);
                 const letter = resolveLetter(average);
 
@@ -311,7 +321,8 @@ export function TranscriptPage() {
         </div>
       </Card>
 
-      <Card className="overflow-hidden print:break-inside-avoid print:bg-white print:shadow-none">
+      {hasStaticRecord ? (
+        <Card className="overflow-hidden print:break-inside-avoid print:bg-white print:shadow-none">
         <div className="px-5 py-4 sm:px-6">
           <h2 className="font-display text-[15px] font-semibold text-slate-900 dark:text-white">
             {t('sc.transcript.history')}
@@ -380,7 +391,8 @@ export function TranscriptPage() {
             </tfoot>
           </table>
         </div>
-      </Card>
+        </Card>
+      ) : null}
 
       <p className="flex items-start gap-2 rounded-2xl border border-slate-200/70 bg-white/60 px-4 py-3 text-[10px] leading-relaxed text-slate-400 dark:border-white/[0.07] dark:bg-white/[0.03] dark:text-slate-500 print:bg-white">
         <Info className="mt-px h-3 w-3 shrink-0 text-brand-500 dark:text-brand-300" aria-hidden />

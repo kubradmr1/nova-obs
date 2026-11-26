@@ -7,7 +7,9 @@ export interface AuthContextValue {
   session: SessionUser | null;
   status: AuthStatus;
   isSupabaseMode: boolean;
-  login: (role: Role, credentials: LoginCredentials, remember: boolean) => Promise<SessionUser>;
+  isDemoMode: boolean;
+  isAuthConfigured: boolean;
+  login: (role: Role, credentials: LoginCredentials) => Promise<SessionUser>;
   sendOtp: (email: string) => Promise<void>;
   verifyOtp: (email: string, token: string) => Promise<SessionUser>;
   logout: () => Promise<void>;

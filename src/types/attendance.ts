@@ -44,6 +44,8 @@ export interface JoinSessionInput {
   signature: string;
 }
 
+// attendance_join_session / attendance_lookup_code yanıtlarındaki
+// reason değerlerinin tamamı. 'unavailable' istemci tarafı taşıma hatasıdır.
 export type JoinFailureReason =
   | 'not-found'
   | 'closed'
@@ -51,11 +53,73 @@ export type JoinFailureReason =
   | 'invalid-code'
   | 'duplicate'
   | 'not-enrolled'
-  | 'signature-required';
+  | 'signature-required'
+  | 'rate-limited'
+  | 'forbidden'
+  | 'signature-too-large'
+  | 'invalid-signature'
+  | 'unavailable';
+
+export type StartFailureReason =
+  | 'forbidden'
+  | 'course-not-found'
+  | 'invalid-duration'
+  | 'session-conflict'
+  | 'unavailable';
 
 export type JoinSessionResult =
-  | { ok: true; session: AttendanceSession }
+  | { ok: true; session: AttendanceSession; participant?: AttendanceParticipant }
   | { ok: false; reason: JoinFailureReason };
+
+export type LookupCodeResult =
+  | { ok: true; alreadyJoined: boolean; session: AttendanceSession }
+  | { ok: false; reason: JoinFailureReason };
+
+export interface AttendanceCodeSnapshot {
+  sessionId: string;
+  status: 'active' | 'ended' | 'expired';
+  code: string | null;
+  slot: number;
+  codeExpiresAt: string | null;
+  endsAt: string;
+  rotationSeconds: number;
+  serverTime: string;
+}
+
+export interface AttendanceCourseSummary {
+  code: string;
+  name: string;
+  term: string;
+  room: string;
+  rosterCount: number;
+}
+
+export interface AttendanceIdentity {
+  studentId: string;
+  studentNumber: string;
+}
+
+export interface AttendanceService {
+  readonly mode: 'local' | 'supabase';
+  listSessions(): Promise<AttendanceSession[]>;
+  subscribe(listener: (sessions: AttendanceSession[]) => void): () => void;
+  startSession(input: StartSessionInput): Promise<AttendanceSession>;
+  endSession(sessionId: string): Promise<AttendanceSession | null>;
+  joinSession(input: JoinSessionInput): Promise<JoinSessionResult>;
+  lookupCode(code: string, identity?: AttendanceIdentity): Promise<LookupCodeResult>;
+  currentCode(sessionId: string): Promise<AttendanceCodeSnapshot | null>;
+  listCourses(): Promise<AttendanceCourseSummary[]>;
+}
+
+export class AttendanceServiceError extends Error {
+  readonly reason: StartFailureReason;
+
+  constructor(reason: StartFailureReason) {
+    super(reason);
+    this.name = 'AttendanceServiceError';
+    this.reason = reason;
+  }
+}
 
 export interface AttendanceRepository {
   load(): AttendanceSession[];
